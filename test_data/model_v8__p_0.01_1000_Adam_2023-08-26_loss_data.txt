@@ -1,0 +1,12 @@
+Epoch num: 0 / 1000 completed/ | Loss for this epoch: 4229.14404296875
+Epoch num: 100 / 1000 completed/ | Loss for this epoch: 11.384126663208008
+Epoch num: 200 / 1000 completed/ | Loss for this epoch: 4.2927422523498535
+Epoch num: 300 / 1000 completed/ | Loss for this epoch: 2.607769727706909
+Epoch num: 400 / 1000 completed/ | Loss for this epoch: 1.61466383934021
+Epoch num: 500 / 1000 completed/ | Loss for this epoch: 2.888941764831543
+Epoch num: 600 / 1000 completed/ | Loss for this epoch: 1.2163411378860474
+Epoch num: 700 / 1000 completed/ | Loss for this epoch: 4.575229644775391
+Epoch num: 800 / 1000 completed/ | Loss for this epoch: 1.2632631063461304
+Epoch num: 900 / 1000 completed/ | Loss for this epoch: 2.8522026538848877
+Epoch num: 1000 / 1000 completed/ | Loss for this epoch: 0.7885686159133911
+Train time: 50.72075033187866

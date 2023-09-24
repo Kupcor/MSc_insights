@@ -1,0 +1,17 @@
+Epoch num: 0 / 1500 completed | Loss for this epoch: 4228.70703125
+Epoch num: 100 / 1500 completed | Loss for this epoch: 9.607621192932129
+Epoch num: 200 / 1500 completed | Loss for this epoch: 8.99431324005127
+Epoch num: 300 / 1500 completed | Loss for this epoch: 2.214062452316284
+Epoch num: 400 / 1500 completed | Loss for this epoch: 2.3641796112060547
+Epoch num: 500 / 1500 completed | Loss for this epoch: 8.633865356445312
+Epoch num: 600 / 1500 completed | Loss for this epoch: 7.836193084716797
+Epoch num: 700 / 1500 completed | Loss for this epoch: 0.8795506358146667
+Epoch num: 800 / 1500 completed | Loss for this epoch: 0.8428712487220764
+Epoch num: 900 / 1500 completed | Loss for this epoch: 0.806532084941864
+Epoch num: 1000 / 1500 completed | Loss for this epoch: 0.7933327555656433
+Epoch num: 1100 / 1500 completed | Loss for this epoch: 0.7662801146507263
+Epoch num: 1200 / 1500 completed | Loss for this epoch: 0.726060152053833
+Epoch num: 1300 / 1500 completed | Loss for this epoch: 0.9636004567146301
+Epoch num: 1400 / 1500 completed | Loss for this epoch: 4.159127712249756
+Epoch num: 1500 / 1500 completed | Loss for this epoch: 0.8000359535217285
+Train time: 808.7356669902802
