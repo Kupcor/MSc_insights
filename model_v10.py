@@ -262,12 +262,20 @@ def test_model(test_loader, model,loss_fun,show_results=True, opt="Adam"):
             predictions = model(batch_X)
             batch_loss = loss_fun(predictions, batch_y.unsqueeze(1))
             test_loss += batch_loss.item()
-            losses.append(batch_loss.item())
             all_predictions.append(predictions.cpu().numpy())
             all_reall_results.append(batch_y.cpu().numpy())
             input_data.append(batch_X.cpu().numpy())
+
+            for i in range(len(batch_y)):
+                single_prediction = predictions[i].cpu().numpy()
+                single_target = batch_y[i].cpu().numpy()
+                single_input = batch_X[i].cpu().numpy()
+                
+                # Oblicz wartość funkcji straty dla pojedynczej predykcji
+                single_loss = loss_fun(predictions[i].unsqueeze(0), batch_y[i].unsqueeze(0))
+                losses.append(single_loss)
     
-    average_test_loss = test_loss / len(test_loader)
+    average_test_loss = test_loss / len(test_loader)    #   It is redundant but lets leave it for now
 
     if show_results:
         print(f'Loss during test: {average_test_loss}')
@@ -368,10 +376,13 @@ def run_model(train_loader = train_loader, test_loader = test_loader, num_epochs
     save_path = "models/" + hp.MODEL_NAME + file_name_p2 + '.pth'
     torch.save(Prediction_model_v.state_dict(), save_path)
 
-def run_loaded_model(file_path, folder_of_tensor_flow_logs, X_val=X_test, Y_val=y_test, loss_fun = nn.MSELoss()):
+def run_loaded_model(file_path, folder_of_tensor_flow_logs, test_loader=test_loader, X_val=X_test, Y_val=y_test, loss_fun = nn.MSELoss()):
     from tensorboardX import SummaryWriter
     dict = f"tensor_board_logs/{folder_of_tensor_flow_logs}"
     writer = SummaryWriter(dict)
+
+    import os
+    file_name = os.path.basename(file_path)
 
     saved_model_path = file_path
     model = PredictionModel(input_size)
@@ -379,12 +390,11 @@ def run_loaded_model(file_path, folder_of_tensor_flow_logs, X_val=X_test, Y_val=
     model = model.to(device)
     model.eval()
     predictions, real_values, test_loss, input_values, losses = test_model(test_loader=test_loader, model=model, loss_fun=nn.MSELoss(), opt=hp.optimizer_arg, show_results=True)
-    plot_predictions(test_data=real_values, predictions=predictions)
-
+    #plot_predictions(test_data=real_values, predictions=predictions)
     # Zapisz dane do pliku
-    with open(f'loaded_models_results/{file_path[6:]}_results.txt', "w") as file:
+    with open(f'loaded_models_results/{file_name}_results_2.txt', "w") as file:
         headers = ["Index", "Temperature[C]", "Zr[at%]", "Nb[at%]", "Mo[at%]", "Cr[at%]", "Al[at%]", "Ti[at%]", "Ta[at%]", "W[at%]", "Time[h]", "MassChange[mg.cm2](Real)", "MassChange[mg.cm2](Predicted)", "Loss"]
-        header_line = "{:<6} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<22} {:<22}\n".format(*headers)
+        header_line = "{:<6} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<15} {:<22} {:<22} {:<22}\n".format(*headers)
         file.write(header_line)
 
         prd = predictions[0]
@@ -397,6 +407,12 @@ def run_loaded_model(file_path, folder_of_tensor_flow_logs, X_val=X_test, Y_val=
             loss = "{:<22.5f}".format(losses[i])
             line = "{:<6} {} {} {} {}\n".format(i, values_string, prd_value, real_value, loss)
             file.write(line)
+
+    sample_input = X_val[0].unsqueeze(0).clone().detach()
+    sample_input = sample_input.to(device)
+    writer.add_graph(model, sample_input)
+    writer.close()
+
 
 def choose_file():
     import tkinter as tk
@@ -414,10 +430,20 @@ def choose_file():
     
     return file_path
 
+def run_model_on_test_data():
+    X_tensor_2, y_tensor_2 = sfdp.get_prepared_data(hp.TEST_DATA)
+    test_dataset_2 = torch.utils.data.TensorDataset(X_tensor_2, y_tensor_2)
+    test_loader_2 = torch.utils.data.DataLoader(test_dataset_2, batch_size=hp.batch_size)
+    for batch_X, batch_y in test_loader_2:
+        print("Batch X:", len(batch_X))
+        print("Batch y:", len(batch_y))
+    run_loaded_model("Best_models/model_v10_p_0.001_1500_AdamW_testLoss_1.6069554090499878_2023-09-23.pth", "model_v9_p_0.001_3000_Adam_2023-08-30", test_loader=test_loader_2)
 
 #   Select proper model
 #   For now need to manual enter the specific path for "run loaded model" function
-#run_model()
-#cross_validation()
-run_loaded_model(choose_file(), "model_v9_p_0.001_3000_Adam_2023-08-30")
+#run_model() -> just main function
 
+#cross_validation()
+#run_loaded_model("Best_models/model_v10_p_0.001_1500_AdamW_testLoss_1.6069554090499878_2023-09-23.pth", "model_v9_p_0.001_3000_Adam_2023-08-30")
+
+run_model_on_test_data()
