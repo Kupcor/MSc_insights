@@ -30,7 +30,7 @@ def move_to_device(data, device):
 
 def get_prepared_data(file_name):
     X, y = load_data(file_name)
-
+    
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_tensor = torch.tensor(y, dtype=torch.float32)
 
@@ -92,30 +92,6 @@ def Z_score_normalization(X,y):
     
     normalized_data = np.hstack((normalized_temperature.reshape(-1, 1), normalized_percentages, normalized_times.reshape(-1, 1)))
     return normalized_data
-
-""" TODO - does it make any sens?
-def robust_normalization(X, y):
-    temperature = X[:, 0]
-    times = X[:, -1]
-    percentages = X[:, 1:-1]
-
-    return normalized_data
-
-def L2_normalization(X, y):
-    temperature = X[:, 0]
-    times = X[:, -1]
-    percentages = X[:, 1:-1]
-
-    return normalized_data
-
-def L1_normalization(X, y):
-    temperature = X[:, 0]
-    times = X[:, -1]
-    percentages = X[:, 1:-1]
-
-    return normalized_data
-"""
-
 
 """
     Interesting sources:

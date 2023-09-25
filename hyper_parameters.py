@@ -3,8 +3,8 @@ from datetime import date
 
 #   Hyper parameters
 train_size_rate = 0.2           #   Default train size rate
-lr = 0.01                       #   Default Learning Rate
-num_epochs = 1000               #   Default Number Of Epochs
+lr = 0.001                       #   Default Learning Rate
+num_epochs = 1500               #   Default Number Of Epochs
 optimizer_arg = "default"       #   Default optimize / default = Adam
 batch_size = 200000             #   Default batch size
 
@@ -21,6 +21,7 @@ today = date.today()
 MODEL_NAME = sys.argv[0][:-3]
 DATA_FILE = "data.xlsx"
 SEED = 32
+TEST_DATA = "test_data.xlsx"
 
 #   Temporarly redundant parameters
 cross_validation_num = 5
