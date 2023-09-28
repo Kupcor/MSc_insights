@@ -1,12 +1,14 @@
 '''
-23.09.2023 model_v11
-Adjusted model to report.
+25.09.2023 model_v11
 
 Notes:
---
+Files and models reorganizations
 
 Results:
 --
+
+TODO
+- File reorganization -> its big monolit
 
 Maybe TODO | TOIMPLEMENT:
 - Hyperparameter tuning
@@ -27,7 +29,6 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as ls
 
 #   Data operations and visualisations libraries
-import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -36,73 +37,10 @@ from sklearn.model_selection import KFold
 from torch.utils.tensorboard import SummaryWriter
 
 #   Custom functions
-import sub_func.data_preparation as sfdp
-import hyper_parameters as hp   #   Hyper parameters
-
-#   ____________________________    Pre Operations  _________________________________
-#   Check if cuda is available
-use_cuda = torch.cuda.is_available()
-
-#   Set Tensor Board Directory (TBD)
-log_dir = f"tensor_board_logs/{hp.MODEL_NAME}"
-
-#   Just to have an option to set parameter via console ~ it is much simpler
-#   LR
-if len(sys.argv) > 1:
-    print(f"Lr set to {sys.argv[1]}")
-    hp.lr = float(sys.argv[1]) 
-#   Epoch numbers
-if len(sys.argv) > 2:
-    print(f"Epoch number set to {sys.argv[2]}")
-    hp.num_epochs = int(sys.argv[2])
-#   Optimizer
-if len(sys.argv) > 3:
-    print(f"Optimizer set to {sys.argv[3]}")
-    hp.optimizer_arg = sys.argv[3]
-
-#   Use CUDA / GPU if available
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-    gpu_name = torch.cuda.get_device_name(0)
-    print(f"Set: {gpu_name}")
-else:
-    device = torch.device("cpu")
-
-#   ____________________________    Select Optimizer  _________________________________
-#   By defoult optimizer is Adam
-def select_optimizer(model, opt_arg=hp.optimizer_arg, lr=hp.lr):
-    if opt_arg == "Adam":
-        optimizer = optim.Adam(model.parameters(), lr)
-    elif opt_arg == "Adagrad":
-        optimizer = optim.Adagrad(model.parameters(), lr)
-    elif opt_arg == "RMSprop":
-        optimizer = optim.RMSprop(model.parameters(), lr)
-    elif opt_arg == "AdamW":
-        optimizer = optim.AdamW(model.parameters(), lr)
-    elif opt_arg == "LBFGS":
-        optimizer = optim.LBFGS(model.parameters(), lr)
-    elif opt_arg == "SGD":
-        optimizer = torch.optim.SGD(model.parameters(), lr)
-    else:
-        optimizer = optim.Adam(model.parameters(), lr)
-    return optimizer
-
-#   ____________________________    Load Data  _________________________________
-#   Load training data in Tensor formats
-X_tensor, y_tensor = sfdp.get_prepared_data(hp.DATA_FILE)
-
-#   Standard split (train and test data) - it is used in base training (without cross validation)
-X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=hp.train_size_rate,
-                                                    random_state=hp.SEED) #  Set fixed random_state to get "repeated" data in each program run
-#   Input size
-input_size = X_train.shape[1]
-
-#   Create data sets (in data loaders form)
-#kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
-train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hp.batch_size, shuffle=True)#, **kwargs)
-test_dataset = torch.utils.data.TensorDataset(X_test, y_test)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=hp.batch_size, shuffle=True)#, **kwargs)
+import data_preparation as sfdp
+import hyper_parameters as hp
+import snippets as sp
+import prepare_outputs as po
 
 #   ____________________________    Prediction Model  _________________________________
 '''
@@ -163,26 +101,26 @@ class PredictionModel(nn.Module):
 
 #   ____________________________    Training Function  _________________________________
 #   Main trainig function
-def train_model(train_loader, model, loss_fun, opt_func, epochs):
-    train_model_file_name = f"_p_{hp.lr}_{hp.num_epochs}_{opt_func.__class__.__name__}_{hp.today}"
-    writer = SummaryWriter(f"{log_dir}{train_model_file_name}")
+def train_model(model, train_loader, loss_fun, opt_func, epochs):
+    train_model_file_name = f"model_{hp.lr}_{hp.num_epochs}_{opt_func.__class__.__name__}_{hp.today}"
+    writer = SummaryWriter(f"{hp.TENSOR_BOARD_DIR}{train_model_file_name}")
     
     model.train()
-    model.to(device)
+    model.to(hp.device)
 
-    #   Fixed learning step scheduler
-    scheduler = ls.StepLR(opt_func, step_size=hp.num_epochs/2, gamma=0.9)   
+    scheduler = ls.StepLR(opt_func, step_size=hp.num_epochs/2, gamma=0.9)   #LS scheduler -> TODO parametrized and improve it   
     loss_array = []
 
-    with open(f'test_data/{hp.MODEL_NAME}_{train_model_file_name}_loss_data.txt', "w") as file:
+    with open(f'test_data_losses/{hp.MODEL_NAME}_{train_model_file_name}_loss_data.txt', "w") as file:
+
         start_time = time.time()
 
         for epoch in range(epochs + 1):
             epoch_loss_accumulator = 0.0
 
             for batch_X, batch_y in train_loader:
-                batch_X = batch_X.to(device)
-                batch_y = batch_y.to(device)
+                batch_X = batch_X.to(hp.device)
+                batch_y = batch_y.to(hp.device)
 
                 predictions = model(batch_X)
                 opt_func.zero_grad()
@@ -197,32 +135,16 @@ def train_model(train_loader, model, loss_fun, opt_func, epochs):
             
             if epoch % 100 == 0 or epoch == epochs:
                 print(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {average_epoch_loss} | LR: {opt_func.param_groups[0]["lr"]} | Optimizer: {opt_func.__class__.__name__} | Device: {next(model.parameters()).device.type}')
-                file.write(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {loss.item()}\n')
-                #print(epoch)
+                file.write(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {loss.item()}\n | Current learning rate: {opt_func.param_groups[0]["lr"]}')
         
             loss_array.append(average_epoch_loss)
             scheduler.step()
                 
             with torch.no_grad():
-                test_pred, real_results, loss_value = test_model(test_loader, model, loss_fun, show_results=False)
+                test_predictions, real_results, loss_value = test_model(model, test_loader, loss_fun, show_results=False)
                 model.train()
                 
-            """ Temporarly turn off early stopping
-            if epoch == 0:
-                best_val_loss = loss_value
-                epochs_since_improvement = 0
-
-            if loss_value < best_val_loss:
-                best_val_loss = loss_value
-                epochs_since_improvement = 0
-            else:
-                epochs_since_improvement += 1
-
-            # If validation loss hasn't improved for a certain number of epochs, stop training
-            if epochs_since_improvement >= patience:
-                print(f'Early stopping: No improvement in {patience} epochs.')
-                break
-            """
+            #   TODO early stop
             
             #   Write to logs | Tensor Board
             writer.add_scalar("Loss/Train", average_epoch_loss, epoch)
@@ -231,41 +153,43 @@ def train_model(train_loader, model, loss_fun, opt_func, epochs):
         end_time = time.time()
         train_time = end_time - start_time
         file.write(f'Train time: {train_time}\n')
-        writer.close()
 
-    with open(f'test_data/{hp.MODEL_NAME}_{train_model_file_name}_test_data.txt', "w") as file:
+    with open(f'test_data_predictions/{hp.MODEL_NAME}_{train_model_file_name}_test_data.txt', "w") as file:
         file.write(f'Results in last iteration:\n')
         for i in range(len(predictions)):
             formatted_line = '{:<2}. Predicted: {:<10.4f} | Actual: {:<10}\n'.format(i, predictions[i].item(), batch_y[i].item())
             file.write(formatted_line)
 
     print(f'Training finished. Train time: {train_time}')
+    writer.close()
     return loss_array
     
 #   Main test function
-def test_model(test_loader, model,loss_fun,show_results=True, opt="Adam"):
-    test_model_file_name = f"_p_{hp.lr}_{hp.num_epochs}_{opt.__class__.__name__}_{hp.today}"
+def test_model(model, test_loader, loss_fun, show_results=True):
+    #test_model_file_name = f"_p_{hp.lr}_{hp.num_epochs}_{opt.__class__.__name__}_{hp.today}"
 
     model.eval()
-    model.to(device)
+    model.to(hp.device)
+
     test_loss = 0.0
     losses = []  
     all_predictions = []
     all_reall_results = []
-    input_data = []
 
     with torch.no_grad():
         for batch_X, batch_y in test_loader:
-            batch_X = batch_X.to(device)
-            batch_y = batch_y.to(device)
+            batch_X = batch_X.to(hp.device)
+            batch_y = batch_y.to(hp.device)
 
             predictions = model(batch_X)
+
             batch_loss = loss_fun(predictions, batch_y.unsqueeze(1))
             test_loss += batch_loss.item()
+
             all_predictions.append(predictions.cpu().numpy())
             all_reall_results.append(batch_y.cpu().numpy())
-            input_data.append(batch_X.cpu().numpy())
 
+            '''
             for i in range(len(batch_y)):
                 single_prediction = predictions[i].cpu().numpy()
                 single_target = batch_y[i].cpu().numpy()
@@ -274,60 +198,20 @@ def test_model(test_loader, model,loss_fun,show_results=True, opt="Adam"):
                 # Oblicz wartość funkcji straty dla pojedynczej predykcji
                 single_loss = loss_fun(predictions[i].unsqueeze(0), batch_y[i].unsqueeze(0))
                 losses.append(single_loss)
-    
+            '''
     average_test_loss = test_loss / len(test_loader)    #   It is redundant but lets leave it for now
 
     if show_results:
         print(f'Loss during test: {average_test_loss}')
         print(f'Test finished')
-        with open(f'test_data/{hp.MODEL_NAME}{test_model_file_name}_test_results_data.txt', "w") as file:
-            file.write(f'Results in last iteration:\n')
-            for i in range(len(predictions)):
-                formatted_line = '{:<2}. Predicted: {:<10.4f} | Actual: {:<10}\n'.format(i, predictions[i].item(), batch_y[i].item())
-                file.write(formatted_line)
+        #with open(f'test_data/{hp.MODEL_NAME}{test_model_file_name}_test_results_data.txt', "w") as file:
+        #    file.write(f'Results in last iteration:\n')
+        #    for i in range(len(predictions)):
+        #        formatted_line = '{:<2}. Predicted: {:<10.4f} | Actual: {:<10}\n'.format(i, predictions[i].item(), batch_y[i].item())
+        #        file.write(formatted_line)
 
     all_reall_results_flat = [item for sublist in all_reall_results for item in sublist]
-    return all_predictions, all_reall_results_flat, average_test_loss, input_data, losses
-
-#   Function to show result comparison in plot
-def plot_predictions(test_data=y_test, predictions=None, opt="Adam", epochs=hp.num_epochs, lr=hp.lr):
-    plt.figure(figsize=(15, 7))
-    info_text = f"File: {hp.MODEL_NAME}\nEpoch: {hp.num_epochs}\nLR: {lr}\nTraining rate: {hp.train_size_rate}"
-    plt.text(0.95, 0.95, info_text, transform=plt.gca().transAxes, verticalalignment='top', horizontalalignment='right', fontsize=12)
-    x_axis = list(range(len(test_data)))
-    plt.scatter(x_axis, test_data, c="g", s=4, label="Ground Truth")
-
-    if predictions is not None:
-        plt.scatter(x_axis, predictions, c="r", s=4, label="Predictions")
-
-    file_name_p2 = f"_p_{lr}_{epochs}_{opt}_{hp.today}"
-    plt.legend(prop={"size": 14})
-    plt.grid()
-    #plt.show()
-    plt.savefig(f"pngs/losses{file_name_p2}.jpg")
-
-
-#   Function to show loss change during training
-def loss_oscilation(losses, opt="Adam", epochs=hp.num_epochs, lr=hp.lr):
-    plt.figure(figsize=(15, 7))
-    info_text = f"File: {hp.MODEL_NAME}\nEpoch: {hp.num_epochs}\nLR: {lr}\nTraining rate: {hp.train_size_rate}"
-    plt.text(0.95, 0.95, info_text, transform=plt.gca().transAxes, verticalalignment='top', horizontalalignment='right', fontsize=12)
-
-    x_axis = list(range(int(hp.num_epochs/2), len(losses)))
-    plt.scatter(x_axis, losses[int(hp.num_epochs/2):], c="g", s=4, label="Testing data")
-
-    coeffs = np.polyfit(x_axis, losses[int(hp.num_epochs/2):], 1)
-    trendline = np.polyval(coeffs, x_axis)
-    plt.plot(x_axis, trendline, color='r', label='Trendline')
-
-    plt.legend(prop={"size": 14})
-    plt.grid()
-    
-    file_name_p2 = f"_p_{lr}_{epochs}_{opt}_{hp.today}"
-    plt.show()
-
-    plt.savefig(f"pngs/loss_trend{file_name_p2}.jpg")
-
+    return all_predictions, all_reall_results_flat, average_test_loss#, input_data, losses
 
 """
 Redundanty for now
@@ -353,28 +237,37 @@ def cross_validation(X=X_tensor, y=y_tensor, loss_fn=nn.MSELoss(), num_epochs=nu
     print(fold_loss)
 """
 
-#   Standard run
-def run_model(train_loader = train_loader, test_loader = test_loader, num_epochs=hp.num_epochs, lr=hp.lr, opt_func=hp.optimizer_arg):
-    Prediction_model_v = PredictionModel(input_size)
-    Prediction_model_v = Prediction_model_v.to(device)
 
-    loss_fn = nn.MSELoss() 
+#   ____________________________    Load Data  _________________________________
+#   Standard split (train and test data) - it is used in base training (without cross validation)
+X_train, X_test, y_train, y_test = sfdp.get_splited_training_data(hp.DATA_FILE, hp.SEED, hp.train_size_rate)
+#   Create data sets (in data loaders form)
+train_loader, test_loader = sfdp.get_test_and_train_loader(hp.DATA_FILE, hp.SEED, hp.train_size_rate, hp.batch_size, True)
+#   Input size
+input_size = X_train.shape[1]
+
+#   Standard run
+def run_model(train_loader = train_loader, test_loader = test_loader, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
+    prediction_model = PredictionModel(input_size)
+    prediction_model = prediction_model.to(hp.device)
+    loss_function = nn.MSELoss() 
     
     #   Select optimizer
-    optimizer = select_optimizer(Prediction_model_v, opt_arg=opt_func, lr=lr)
+    optimizer = sp.select_optimizer(prediction_model, opt_arg=opt_func, lr=learning_rate)
+
     #   Traing model
-    train_loss = train_model(train_loader, Prediction_model_v, loss_fn, optimizer, num_epochs)
+    train_loss = train_model(prediction_model, train_loader,  loss_function, optimizer, num_epochs)
     #   Test model
-    predictions, real_results, test_loss = test_model(test_loader, Prediction_model_v, loss_fn, opt=opt_func)
+    test_predictions, real_results, test_loss = test_model(prediction_model, test_loader, loss_function)
 
     #   Show plots
-    plot_predictions(test_data=real_results, predictions=predictions, opt=opt_func, lr=lr, epochs=num_epochs)
-    loss_oscilation(train_loss, opt=opt_func, epochs=num_epochs, lr=lr)
+    po.plot_predictions(test_data=real_results, predictions=test_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
+    po.loss_oscilation(train_loss, opt=opt_func, epochs=num_epochs, lr=learning_rate)
 
     #   Save model
-    file_name_p2 = f"_p_{lr}_{num_epochs}_{optimizer.__class__.__name__}_testLoss_{test_loss}_{hp.today}"
-    save_path = "models/" + hp.MODEL_NAME + file_name_p2 + '.pth'
-    torch.save(Prediction_model_v.state_dict(), save_path)
+    file_name = f"_model_{learning_rate}_{num_epochs}_{optimizer.__class__.__name__}_testLoss_{test_loss}_{hp.today}"
+    save_path = "models/" + hp.MODEL_NAME + file_name + '.pth'
+    torch.save(prediction_model.state_dict(), save_path)
 
 def run_loaded_model(file_path, folder_of_tensor_flow_logs, test_loader=test_loader, X_val=X_test, Y_val=y_test, loss_fun = nn.MSELoss()):
     from tensorboardX import SummaryWriter
@@ -387,7 +280,7 @@ def run_loaded_model(file_path, folder_of_tensor_flow_logs, test_loader=test_loa
     saved_model_path = file_path
     model = PredictionModel(input_size)
     model.load_state_dict(torch.load(saved_model_path))
-    model = model.to(device)
+    model = model.to(hp.device)
     model.eval()
     predictions, real_values, test_loss, input_values, losses = test_model(test_loader=test_loader, model=model, loss_fun=nn.MSELoss(), opt=hp.optimizer_arg, show_results=True)
     #plot_predictions(test_data=real_values, predictions=predictions)
@@ -409,29 +302,12 @@ def run_loaded_model(file_path, folder_of_tensor_flow_logs, test_loader=test_loa
             file.write(line)
 
     sample_input = X_val[0].unsqueeze(0).clone().detach()
-    sample_input = sample_input.to(device)
+    sample_input = sample_input.to(hp.device)
     writer.add_graph(model, sample_input)
     writer.close()
 
-
-def choose_file():
-    import tkinter as tk
-    from tkinter import filedialog
-    root = tk.Tk()
-    root.withdraw()
-
-    file_path = filedialog.askopenfilename(initialdir="models/")
-
-    if file_path:
-        print("Choosen file:", file_path)
-    else:
-        print("File was not choosen")
-        exit()
-    
-    return file_path
-
 def run_model_on_test_data():
-    X_tensor_2, y_tensor_2 = sfdp.get_prepared_data(hp.TEST_DATA)
+    X_tensor_2, y_tensor_2 = sfdp.get_test_data_converted_to_tensor(hp.TEST_DATA)
     test_dataset_2 = torch.utils.data.TensorDataset(X_tensor_2, y_tensor_2)
     test_loader_2 = torch.utils.data.DataLoader(test_dataset_2, batch_size=hp.batch_size)
     for batch_X, batch_y in test_loader_2:
@@ -439,11 +315,9 @@ def run_model_on_test_data():
         print("Batch y:", len(batch_y))
     run_loaded_model("Best_models/model_v10_p_0.001_1500_AdamW_testLoss_1.6069554090499878_2023-09-23.pth", "model_v9_p_0.001_3000_Adam_2023-08-30", test_loader=test_loader_2)
 
-#   Select proper model
-#   For now need to manual enter the specific path for "run loaded model" function
-#run_model() -> just main function
+
+run_model() #-> just main function
 
 #cross_validation()
 #run_loaded_model("Best_models/model_v10_p_0.001_1500_AdamW_testLoss_1.6069554090499878_2023-09-23.pth", "model_v9_p_0.001_3000_Adam_2023-08-30")
-
-run_model_on_test_data()
+#run_model_on_test_data()
