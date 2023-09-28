@@ -1,1 +1,0 @@
-Epoch num: 0 / 50000 completed/ | Loss for this epoch: 4239.83935546875

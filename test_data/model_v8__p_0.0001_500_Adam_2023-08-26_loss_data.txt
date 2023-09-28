@@ -1,7 +1,0 @@
-Epoch num: 0 / 500 completed/ | Loss for this epoch: 4222.494140625
-Epoch num: 100 / 500 completed/ | Loss for this epoch: 3910.02783203125
-Epoch num: 200 / 500 completed/ | Loss for this epoch: 3524.795166015625
-Epoch num: 300 / 500 completed/ | Loss for this epoch: 3109.721435546875
-Epoch num: 400 / 500 completed/ | Loss for this epoch: 2675.03857421875
-Epoch num: 500 / 500 completed/ | Loss for this epoch: 2212.541748046875
-Train time: 8.010501623153687
