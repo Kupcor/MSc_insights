@@ -45,22 +45,32 @@ def plot_predictions(test_data, predictions=None, opt="Adam", epochs=hp.num_epoc
     plt.show()
 
 def create_graph_of_material_change_over_time(time, material):
-    plt.plot(time, material, linestyle='-', color='red', marker='', label='Trend')
 
-    plt.plot(time, material, linestyle='-', color='red', marker='', label='Trend')
+    fig, ax = plt.subplots()
+
+    ax.plot(time, material, linestyle='-', color='blue')
 
     sampled_time = time[::20]
     sampled_material = material[::20]
-    plt.scatter(sampled_time, sampled_material, color='blue', marker='s', s=50)  # 's' oznacza kwadrat
-    plt.title(f'Oxidation curve')
-    plt.xlabel('Time (h)')
-    plt.ylabel('Mass change (mg/cm^2)')
-    plt.grid(True)
-    plt.legend()
 
-    for i, txt in enumerate(material):
-        if i % 20 == 0:
-            value = material[i]
-            formatted_value = f'{value}'
-            plt.annotate(formatted_value, (time[i], value), textcoords="offset points", xytext=(0, 10), ha='center')
+    ax.scatter(sampled_time, sampled_material, color='green', marker='s', s=20, label='Sampled Data -> the twentieth sampe')
+
+    ax.set_title('Oxidation Curve')
+    ax.set_xlabel('Time (h)')
+    ax.set_ylabel('Mass Change (mg/cm²)')
+    ax.grid(True)
+    ax.legend()
+
+    for i, txt in enumerate(sampled_material):
+        truncated_value = round(txt[0], 2)
+        print(truncated_value)
+        ax.annotate(truncated_value, (sampled_time[i], txt), textcoords="offset points", xytext=(0, 10), ha='center')
+
+    
+    with open(f'test_results.txt', "w") as file:
+        for i in range(len(time)):
+            writter = f'{i+1} {time[i]} {material[i][0]}'
+            writter = writter.replace('.', ',')
+            file.write(f'{writter}\n')
     plt.show()
+

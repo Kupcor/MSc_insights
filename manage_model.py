@@ -31,7 +31,9 @@ import prepare_outputs as po
 import data_features_analisys as dfa
 
 
-import model_5_layers as model
+#   !!!! Here is simple instruction to choose model
+#   Just change module name, e.g if you want to use model_5_layer architecture use import model_5_layers as model
+import model_1_layer as model
 
 #   ____________________________    Load Data  _________________________________
 #   Standard split (train and test data) - it is used in base training (without cross validation)

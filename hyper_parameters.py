@@ -42,7 +42,7 @@ else:
     device = torch.device("cpu")
     print(f'Set: cpu')
 
-#device = torch.device("cpu")
+device = torch.device("cpu")
 
 
 #   Neuron numbers
