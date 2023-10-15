@@ -43,3 +43,24 @@ def plot_predictions(test_data, predictions=None, opt="Adam", epochs=hp.num_epoc
     plt.grid()
     plt.savefig(f"plots/{hp.MODEL_NAME}_predictions_{file_name}.jpg")
     plt.show()
+
+def create_graph_of_material_change_over_time(time, material):
+    plt.plot(time, material, linestyle='-', color='red', marker='', label='Trend')
+
+    plt.plot(time, material, linestyle='-', color='red', marker='', label='Trend')
+
+    sampled_time = time[::20]
+    sampled_material = material[::20]
+    plt.scatter(sampled_time, sampled_material, color='blue', marker='s', s=50)  # 's' oznacza kwadrat
+    plt.title(f'Oxidation curve')
+    plt.xlabel('Time (h)')
+    plt.ylabel('Mass change (mg/cm^2)')
+    plt.grid(True)
+    plt.legend()
+
+    for i, txt in enumerate(material):
+        if i % 20 == 0:
+            value = material[i]
+            formatted_value = f'{value}'
+            plt.annotate(formatted_value, (time[i], value), textcoords="offset points", xytext=(0, 10), ha='center')
+    plt.show()

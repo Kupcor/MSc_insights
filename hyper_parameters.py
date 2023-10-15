@@ -40,6 +40,10 @@ if torch.cuda.is_available():
     print(f"Set: {gpu_name}")
 else:
     device = torch.device("cpu")
+    print(f'Set: cpu')
+
+#device = torch.device("cpu")
+
 
 #   Neuron numbers
 input_layer_neurons = 4096*2
@@ -53,6 +57,7 @@ output_layer_neurons = 256
 today = date.today()      
 MODEL_NAME = sys.argv[0][:-3]
 DATA_FILE = "data/data.xlsx"
+TESTING_FILE = "data/chart_data.xlsx"
 TEST_DATA = "data/test_data.xlsx"
 TENSOR_BOARD_DIR = f"tensor_board_logs/{MODEL_NAME}"
 MODEL_FILE_NAME = f"model_{lr}_{num_epochs}_{optimizer_arg}_{today}"
