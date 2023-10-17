@@ -33,7 +33,7 @@ import data_features_analisys as dfa
 
 #   !!!! Here is simple instruction to choose model
 #   Just change module name, e.g if you want to use model_5_layer architecture use import model_5_layers as model
-import model_1_layer as model
+import model_1_layer_parametrized as model
 
 #   ____________________________    Load Data  _________________________________
 #   Standard split (train and test data) - it is used in base training (without cross validation)
@@ -164,6 +164,45 @@ def load_model(file_name, data_file, test_loader=test_loader, loss_fun = nn.MSEL
     writer.add_graph(prediction_model, dummy_input)
     writer.close()
     #dfa.plot_feature_importance(model)
+
+def train_multiple_models(train_loader = train_loader, test_loader = test_loader, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
+    values = {}
+    #   q = m - 1 / n + 2 => m - number of train samples, n - input features
+    for layer_number in range(10, 80):
+        print(f'________\nTraining model with {layer_number} neurons start')
+        prediction_model = model.PredictionModel(input_size, 86)
+        prediction_model = prediction_model.to(hp.device)
+        loss_function = nn.MSELoss()
+
+        #   Select optimizer
+        optimizer = sp.select_optimizer(prediction_model, opt_arg=opt_func, lr=learning_rate)
+        #   Traing model
+        train_loss = model.train_model(prediction_model, train_loader, test_loader, loss_function, optimizer, num_epochs)
+        #   Test model
+        test_predictions, real_results, test_loss, input_data, losses = model.test_model(prediction_model, test_loader, loss_function)
+
+        key = f'klucz_layer_{layer_number}'
+        value = f'loss: {test_loss}'
+        values[key] = value
+
+    
+    with open(f'hyperparameters_searching/test_data_{opt_func}_{learning_rate}_{num_epochs}.txt', "w") as file:
+        file.write(f'Results training results:\n')
+        for key in values.keys():
+            formatted_line = f'{key} : {values[key]}\n'
+            file.write(formatted_line)
+
+    # Show plots
+    # po.plot_predictions(test_data=real_results, predictions=test_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
+    # po.loss_oscilation(train_loss, opt=opt_func, epochs=num_epochs, lr=learning_rate)
+
+    # Save model
+    # file_name = f"_model_{learning_rate}_{num_epochs}_{optimizer.__class__.__name__}_{hp.today}_testLoss_{test_loss}"
+    # save_path = "models/" + hp.MODEL_NAME + "_" + prediction_model.model_name + file_name + '.pth'
+    # torch.save(prediction_model.state_dict(), save_path)
+
+
+
 
 #run_model()
 #cross_validation()

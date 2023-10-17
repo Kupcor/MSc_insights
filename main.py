@@ -15,6 +15,6 @@ current_model = current_model + ".pth"
 if len(sys.argv) == 1:
     m.load_model(current_model, hp.TESTING_FILE)
 else:
-    m.run_model()
-
+    #m.run_model()
+    m.train_multiple_models()
 
