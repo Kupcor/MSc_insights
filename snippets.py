@@ -12,9 +12,10 @@ def select_optimizer(model, opt_arg=hp.optimizer_arg, lr=hp.lr):
         optimizer = optim.RMSprop(model.parameters(), lr)
     elif opt_arg == "AdamW":
         optimizer = optim.AdamW(model.parameters(), lr)
-    elif opt_arg == "LBFGS":
-        optimizer = optim.LBFGS(model.parameters(), lr)
-    elif opt_arg == "SGD":
+    # Not aplicable
+    #elif opt_arg == "LBFGS":
+    #    optimizer = optim.LBFGS(model.parameters(), lr, max_iter = 50)
+    #elif opt_arg == "SGD":
         optimizer = optim.SGD(model.parameters(), lr)
     else:
         optimizer = optim.Adam(model.parameters(), lr)

@@ -165,12 +165,13 @@ def load_model(file_name, data_file, test_loader=test_loader, loss_fun = nn.MSEL
     writer.close()
     #dfa.plot_feature_importance(model)
 
+
 def train_multiple_models(train_loader = train_loader, test_loader = test_loader, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
     values = {}
     #   q = m - 1 / n + 2 => m - number of train samples, n - input features
-    for layer_number in range(10, 80):
-        print(f'________\nTraining model with {layer_number} neurons start')
-        prediction_model = model.PredictionModel(input_size, 86)
+    for neuron_number in range(7, 15):
+        print(f'________\nTraining model with {neuron_number} neurons start')
+        prediction_model = model.PredictionModel(input_size, neuron_number)
         prediction_model = prediction_model.to(hp.device)
         loss_function = nn.MSELoss()
 
@@ -181,12 +182,12 @@ def train_multiple_models(train_loader = train_loader, test_loader = test_loader
         #   Test model
         test_predictions, real_results, test_loss, input_data, losses = model.test_model(prediction_model, test_loader, loss_function)
 
-        key = f'klucz_layer_{layer_number}'
+        key = f'layer_number | {neuron_number}'
         value = f'loss: {test_loss}'
         values[key] = value
 
     
-    with open(f'hyperparameters_searching/test_data_{opt_func}_{learning_rate}_{num_epochs}.txt', "w") as file:
+    with open(f'hyperparameters_searching/test_data_{opt_func}_{learning_rate}_{num_epochs}_activation_tahn_wyjscia_wykl.txt', "w") as file:
         file.write(f'Results training results:\n')
         for key in values.keys():
             formatted_line = f'{key} : {values[key]}\n'
@@ -203,6 +204,46 @@ def train_multiple_models(train_loader = train_loader, test_loader = test_loader
 
 
 
+# Search for hyperparameters and other functions
+def train_parametrized_one_layer_model(layer_number, train_loader = train_loader, test_loader = test_loader, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
+    neuron_number = layer_number
+    #   q = m - 1 / n + 2 => m - number of train samples, n - input features
+    print(f'________\nTraining model with {neuron_number} neurons start')
+    prediction_model = model.PredictionModel(input_size, neuron_number)
+    prediction_model = prediction_model.to(hp.device)
+    loss_function = nn.MSELoss()
+
+    #   Select optimizer
+    optimizer = sp.select_optimizer(prediction_model, opt_arg=opt_func, lr=learning_rate)
+    #   Traing model
+    train_loss = model.train_model(prediction_model, train_loader, test_loader, loss_function, optimizer, num_epochs)
+    #   Test model
+    test_predictions, real_results, test_loss, input_data, losses = model.test_model(prediction_model, test_loader, loss_function)
+
+    file_name = f"_model_{learning_rate}_{num_epochs}_{optimizer.__class__.__name__}_{hp.today}_testLoss_{test_loss}_one_layer"
+    save_path = f'models_hyperparameter/{hp.MODEL_NAME}_{prediction_model.model_name}{file_name}_neuron_num_{neuron_number}.pth'
+    torch.save(prediction_model.state_dict(), save_path)
+    return train_loss
+
+def train_hyperparameters():
+    values = {}
+    lrs = [0.01, 0.001, 0.0001, 0.00001]
+    epochs = [500, 1000, 2000, 3000, 4000, 5000]
+    optimizers = ["Adam", "AdamW", "RMSprop", "SGD", "Adagrad"]
+    for lr in lrs:
+        for epoch in epochs:
+            for optimizer in optimizers:
+                print(f'Start for {lr} {epoch} {optimizer}')
+                test_loss = train_parametrized_one_layer_model(layer_number=13, learning_rate=lr, opt_func=optimizer, num_epochs=epoch)
+                key = f'{lr}_{epoch}_{optimizer}'
+                value = f'loss: {test_loss}'
+                values[key] = value
+
+    with open(f'hyperparameters_searching/test_data_hyperparameters_relu_and_batch_normalizations.txt', "w") as file:
+        file.write(f'Results training results:\n')
+        for key in values.keys():
+            formatted_line = f'{key} : {values[key]}\n'
+            file.write(formatted_line)
 
 #run_model()
 #cross_validation()

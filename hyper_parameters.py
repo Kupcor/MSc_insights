@@ -7,7 +7,7 @@ train_size_rate = 0.2           #   Default train size rate | Used in training d
 lr = 0.001                      #   Default Learning Rate
 num_epochs = 1500               #   Default Number Of Epochs
 optimizer_arg = "default"       #   Default optimize / default = Adam
-batch_size = 200000             #   Default batch size
+batch_size = 20000                 #   Default batch size
 seed = 32                       #   Default seed
 #   Set hyper parameters if they will be provided
 if len(sys.argv) > 1:

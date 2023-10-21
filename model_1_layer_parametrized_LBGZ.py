@@ -53,9 +53,8 @@ Inputs data will be normalized by using build-in pyTorch batchnormalization
 Outputs data will remain same format
 '''                                        
 class PredictionModel(nn.Module):
-    def __init__(self, input_size, hidden_layer_size=9):
+    def __init__(self, input_size, hidden_layer_size):
         super().__init__()
-        self.neuron_num = hidden_layer_size
         self.model_name = "model_1_layers"
         self.input_layer = nn.Linear(input_size, hidden_layer_size)
         self.bn_input = nn.BatchNorm1d(hidden_layer_size)
@@ -65,28 +64,15 @@ class PredictionModel(nn.Module):
         self.logsoftmax = nn.LogSoftmax()
         self.tanh = nn.Tanh()
         self.exp = nn.ELU()
-        self.soft = nn.Softplus()
-        self.l_relu = nn.LeakyReLU()
 
     def forward(self, x):
         result = self.input_layer(x)
         result = self.bn_input(result)
         result = self.tanh(result)
+        #result = self.logsoftmax(result)
         result = self.output_layer(result)
-        result = self.soft(result)
+        result = self.exp(result)
         return result
-'''
-Some notes
-The most important
-- Batch normalization usually improve output a lot
-
-Activations
-- For now combination Relu / LRelu + Softplus give the best results
-
-Optimizers
-- Adagrad is not efficient enought
-- Adam and AdamW are good
-'''
 
 # Closure function
 def closure(model, input, target, optimizer):
@@ -116,25 +102,32 @@ def train_model(model, train_loader, test_loader, loss_fun, opt_func, epochs, tr
         for batch_X, batch_y in train_loader:
             batch_X = batch_X.to(hp.device)
             batch_y = batch_y.to(hp.device)
-            
-            opt_func.zero_grad()
-            predictions = model(batch_X)
 
+            closure_fun = closure(input=batch_X, target=batch_y, model=model, optimizer=opt_func)
+            def closure_wrapper():
+                return closure(model=model, input=batch_X, target=batch_y, optimizer=opt_func)
+            opt_func.step(closure_wrapper)
+
+            average_epoch_loss = closure_fun.item()
+            print(f'{epoch} | {average_epoch_loss}')
+            '''
+            predictions = model(batch_X)
+            opt_func.zero_grad()
                 
             loss = loss_fun(predictions, batch_y.unsqueeze(1))
             loss.backward()
             opt_func.step()
 
             epoch_loss_accumulator += loss.item()
-            
-        average_epoch_loss = epoch_loss_accumulator / len(train_loader)
+            '''
+        #average_epoch_loss = epoch_loss_accumulator / len(train_loader)
             
         if epoch % 100 == 0 or epoch == epochs:
             print(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {average_epoch_loss} | LR: {opt_func.param_groups[0]["lr"]} | Optimizer: {opt_func.__class__.__name__} | Device: {next(model.parameters()).device.type}')
         #    file.write(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {loss.item()} | Current learning rate: {opt_func.param_groups[0]["lr"]}\n')
         
-        loss_array.append(average_epoch_loss)
-        scheduler.step()
+        #loss_array.append(average_epoch_loss)
+        #scheduler.step()
                 
         #with torch.no_grad():
         #    test_predictions, real_results, loss_value, input_data, losses = test_model(model, test_loader, loss_fun, show_results=False)
@@ -198,11 +191,11 @@ def test_model(model, test_loader, loss_fun, show_results=True, test_model_file_
     if show_results:
         print(f'Loss during test: {average_test_loss}')
         print(f'Test finished')
-        with open(f'one_layers_testing/{model.model_name}_{test_model_file_name}_neuron_number_{model.neuron_num}_{test_loss}_test_results_data.txt', "w") as file:
-            file.write(f'Results in last iteration:\n')
-            for i in range(len(predictions)):
-                formatted_line = '{:<2}. Predicted: {:<10.4f} | Actual: {:<10}\n'.format(i, predictions[i].item(), batch_y[i].item())
-                file.write(formatted_line)
+        #with open(f'test_data_run/{model.model_name}_{test_model_file_name}_test_results_data.txt', "w") as file:
+        #    file.write(f'Results in last iteration:\n')
+        #    for i in range(len(predictions)):
+        #        formatted_line = '{:<2}. Predicted: {:<10.4f} | Actual: {:<10}\n'.format(i, predictions[i].item(), batch_y[i].item())
+        #        file.write(formatted_line)
 
     all_reall_results_flat = [item for sublist in all_reall_results for item in sublist]
     return all_predictions, all_reall_results_flat, average_test_loss, batch_X, losses
