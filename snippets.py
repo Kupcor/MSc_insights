@@ -41,3 +41,85 @@ def save_model(model, hidden_layers_neurons, learning_rate, num_epochs, optimize
     )
     save_path = "trained_models/" + file_name + '.pth'
     torch.save(model.state_dict(), save_path)
+
+def save_results_to_excel(predictions, file_name, sheet_name, combination, time, ground_truth):
+    from openpyxl import load_workbook
+    import openpyxl
+    import matplotlib.pyplot as plt
+
+    workbook = load_workbook(file_name)
+
+    if sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+    else:
+        sheet = workbook.create_sheet(title=sheet_name)
+
+    sheet.cell(row=1, column=12, value="Mass change - predictions")
+
+    for i, prediction in enumerate(predictions, start=2):
+        sheet.cell(row=i, column=12, value=prediction)
+
+    fig, ax = plt.subplots()
+    ax.scatter(time, predictions, label='Predictions')
+    ax.scatter(time, ground_truth, label='Ground Truth')
+
+    # Dodaj etykiety i legendę
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Mass Change')
+    ax.set_title(combination)
+    ax.legend()
+    ax.grid()
+
+    # Zapisz rysunek do arkusza
+    img_path = f'image/{sheet_name}.png' 
+    plt.savefig(img_path)
+
+    img = openpyxl.drawing.image.Image(img_path)
+    sheet.add_image(img, 'M10') 
+    workbook.save(file_name)
+
+## !!! Important function
+def data_reader(file_name='bulk_results'):
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    df = pd.read_excel('data/data.xlsx')
+
+    wybrane_kolumny = df[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]']]
+
+    unikalne_kombinacje = wybrane_kolumny.drop_duplicates()
+
+    with pd.ExcelWriter(f'{file_name}', engine='xlsxwriter') as writer:
+        iterator = 1
+        for i, row in unikalne_kombinacje.iterrows():
+            sheet_name = f"combination_{iterator}"
+
+            combination = ', '.join(row.iloc[:-1].astype(str))
+
+            subset = df[(df['Temperature [C]'] == row['Temperature [C]']) & 
+                        (df['Mo [at%]'] == row['Mo [at%]']) & 
+                        (df['Nb [at%]'] == row['Nb [at%]']) & 
+                        (df['Ta [at%]'] == row['Ta [at%]']) & 
+                        (df['Ti [at%]'] == row['Ti [at%]']) & 
+                        (df['Cr [at%]'] == row['Cr [at%]']) & 
+                        (df['Al [at%]'] == row['Al [at%]']) & 
+                        (df['W [at%]'] == row['W [at%]']) & 
+                        (df['Zr [at%]'] == row['Zr [at%]'])]
+
+            subset = subset.drop(columns=['Parametr X'])
+
+            subset.to_excel(writer, sheet_name=sheet_name, index=False)
+            iterator += 1
+
+            worksheet = writer.sheets[sheet_name]
+            chart = writer.book.add_chart({'type': 'scatter'})
+            chart.add_series({
+                'name': "Ground truth",
+                'categories': f"='{sheet_name}'!$J$2:$J${len(subset) + 1}",
+                'values': f"='{sheet_name}'!$K$2:$K${len(subset) + 1}",
+                'marker': {'type': 'circle', 'size': 5},
+            })
+            chart.set_title({'name': combination})
+            chart.set_x_axis({'name': 'Time'})
+            chart.set_y_axis({'name': 'Mass Change'})
+            worksheet.insert_chart('N2', chart)

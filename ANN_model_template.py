@@ -29,7 +29,7 @@ class PredictionModel(nn.Module):
         if is_batch_normalization_implemented:
             self.hidden_layers.append(nn.BatchNorm1d(hidden_layers_neurons[0]))
         
-        self.hidden_layers.append(nn.LeakyReLU())
+        self.hidden_layers.append(nn.Sigmoid())
         
         for i in range(1, len(hidden_layers_neurons)):
             self.hidden_layers.append(nn.Linear(hidden_layers_neurons[i - 1], hidden_layers_neurons[i]))
@@ -37,7 +37,7 @@ class PredictionModel(nn.Module):
             if is_batch_normalization_implemented:
                 self.hidden_layers.append(nn.BatchNorm1d(hidden_layers_neurons[i]))
             
-            self.hidden_layers.append(nn.LeakyReLU())
+            self.hidden_layers.append(nn.Sigmoid())
 
             if is_dropout:
                 self.hidden_layers.append(nn.Dropout(p=dropout_num))

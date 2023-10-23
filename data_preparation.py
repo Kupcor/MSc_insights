@@ -34,7 +34,7 @@ def get_splited_training_data(file_name, seed, split_rate):
     X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=split_rate, random_state=seed)
     return X_train, X_test, y_train, y_test
 
-def get_splitted_training_test_and_validation_data(file_name, seed, split_rate, data_normalization=True):
+def get_splitted_training_test_and_validation_data(file_name, seed, split_rate, data_normalization=False):
     X_tensor, y_tensor = get_test_data_converted_to_tensor(file_name)
     if data_normalization:
         X_tensor, y_tensor = data_normalization_mean(X_tensor=X_tensor, y_tensor=y_tensor)
@@ -63,9 +63,17 @@ def get_test_loader(file_name, batch_size, shuffle):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=shuffle)
 
 
-def data_normalization_mean(X_tensor, y_tensor):
+def data_normalization_mean(X_tensor, y_tensor=None):
     mean_X = torch.mean(X_tensor, dim=0)
     std_X = torch.std(X_tensor, dim=0)
     X_standardized = (X_tensor - mean_X) / std_X
 
     return X_standardized, y_tensor
+
+def input_normalization_mean(X_tensor):
+    mean_X = torch.mean(X_tensor, dim=0)
+    std_X = torch.std(X_tensor, dim=0)
+    std_X = std_X + 1e-6
+
+    X_standardized = (X_tensor - mean_X) / std_X
+    return X_standardized
