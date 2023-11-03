@@ -63,7 +63,7 @@ Inputs data will be normalized by using build-in pyTorch batchnormalization
 Outputs data will remain same format
 '''                           
 class PredictionModel(nn.Module):
-    def __init__(self, input_size):
+    def __init__(self, input_size=10):
         super().__init__()
         self.model_name = "model_5_layers"
         self.input_layer = nn.Linear(input_size, input_layer_neurons)

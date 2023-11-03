@@ -1,3 +1,3 @@
-import ANN_wrapper as aw
+import data_preparation
 
-aw.bulk_predictions()
+X, y = data_preparation.load_training_data("data/data.xlsx")

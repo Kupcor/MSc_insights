@@ -9,8 +9,20 @@ DATA_TYPE = "torch.float64"
 
 def load_training_data(file_name):
     data = pd.read_excel(file_name)
+
+    for column in data.columns:
+            data[column] = data[column].apply(lambda x: float(x.replace(',', '.')) if isinstance(x, str) else x)
+
+    #   3 sigma
+    mean = np.mean(data['Mass Change [mg.cm2]'])
+    std = np.std(data['Mass Change [mg.cm2]'])
+    lower_bound = mean - 3 * std
+    upper_bound = mean + 3 * std
+
+    data = data[(data['Mass Change [mg.cm2]'] >= lower_bound) & (data['Mass Change [mg.cm2]'] <= upper_bound)]
+
     data['Mass Change [mg.cm2]'] = pd.to_numeric(data['Mass Change [mg.cm2]'], errors='coerce')
-    data.dropna(subset=['Mass Change [mg.cm2]'], inplace=True)
+    #data.dropna(subset=['Mass Change [mg.cm2]'], inplace=True)
     X = data[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]', 'Time [h]']].values
     y = data['Mass Change [mg.cm2]'].values
     return X, y
@@ -66,7 +78,10 @@ def get_test_loader(file_name, batch_size, shuffle):
 def data_normalization_mean(X_tensor, y_tensor=None):
     mean_X = torch.mean(X_tensor, dim=0)
     std_X = torch.std(X_tensor, dim=0)
+    std_X = std_X + 1e-6
+
     X_standardized = (X_tensor - mean_X) / std_X
+
 
     return X_standardized, y_tensor
 
