@@ -7,10 +7,12 @@ import hyper_parameters as hp
 def loss_oscilation(losses, opt="Adam", epochs=hp.num_epochs, lr=hp.lr, split_rate=hp.train_size_rate):
     plt.figure(figsize=(15, 7))
 
-    x_axis = list(range(int(hp.num_epochs/2), len(losses)))
-    plt.scatter(x_axis, losses[int(hp.num_epochs/2):], c="g", s=4, label="Testing data")
+    plot_rage = int(len(losses)//2)
 
-    coeffs = np.polyfit(x_axis, losses[int(hp.num_epochs/2):], 1)
+    x_axis = list(range(plot_rage, len(losses)))
+    plt.scatter(x_axis, losses[plot_rage:], c="g", s=4, label="Testing data")
+
+    coeffs = np.polyfit(x_axis, losses[plot_rage:], 1)
     trendline = np.polyval(coeffs, x_axis)
     plt.plot(x_axis, trendline, color='r', label='Trendline')
 

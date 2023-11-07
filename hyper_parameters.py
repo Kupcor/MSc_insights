@@ -9,6 +9,8 @@ num_epochs = 1500               #   Default Number Of Epochs
 optimizer_arg = "default"       #   Default optimize / default = Adam
 seed = 32                       #   Default seed
 neurons_in_hidden_layers = [13] #   Default - one hidden layer with 13 neurons
+x_scaler = None
+y_scaler = None
 
 #   Set hyper parameters if they will be provided
 if len(sys.argv) > 1:

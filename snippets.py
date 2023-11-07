@@ -120,12 +120,12 @@ def data_reader(file_name='bulk_results'):
 
     df = pd.read_excel('data/data.xlsx')
 
-    wybrane_kolumny = df[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]']]
+    selected_row = df[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]']]
 
-    unikalne_kombinacje = wybrane_kolumny.drop_duplicates()
+    unique = selected_row.drop_duplicates()
     with pd.ExcelWriter(f'{file_name}', engine='xlsxwriter') as writer:
         iterator = 1
-        for i, row in unikalne_kombinacje.iterrows():
+        for i, row in unique.iterrows():
             sheet_name = f"combination_{iterator}"
 
             combination = ', '.join(row.iloc[:-1].astype(str))
@@ -141,6 +141,11 @@ def data_reader(file_name='bulk_results'):
                         (df['Zr [at%]'] == row['Zr [at%]'])]
 
             subset = subset.drop(columns=['Parametr X'])
+
+            subset['Mass Change [mg.cm2]'] = pd.to_numeric(subset['Mass Change [mg.cm2]'], errors='coerce')
+
+            subset.dropna(subset=['Mass Change [mg.cm2]'], inplace=True)
+            subset.dropna(how='all', inplace=True)
 
             subset.to_excel(writer, sheet_name=sheet_name, index=False)
             iterator += 1
@@ -172,9 +177,9 @@ def redundant_func(file_name):
         headers = list(data.columns)
         ws.append(headers[:9] + ["Time [h]"] + headers[9:])
 
-        czas = [round(x * 0.1, 1) for x in range(0, 241)]
+        time = [round(x * 0.1, 1) for x in range(0, 241)]
 
-        for t in czas:
+        for t in time:
             row_with_time = list(row[:9]) + [t] + list(row[9:])
             ws.append(row_with_time)
 
