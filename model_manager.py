@@ -9,6 +9,7 @@ standaryzacja = True
 if len(sys.argv) > 1:
     aw.train_model_wrapper(model_save=True)
     #aw.train_model_with_cross_validation()
+    #aw.bulk_training()
 else:
     file_path, file_name = sp.select_file()
     scaler_x, scaler_y = dp.get_scaler("data/data.xlsx")

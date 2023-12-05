@@ -39,7 +39,7 @@ def save_model(model, hidden_layers_neurons, learning_rate, num_epochs, optimize
     hp.today,
     test_loss
     )
-    save_path = "trained_models/" + file_name + '.pth'
+    save_path = "3_layers_models/" + file_name + '.pth'
     torch.save(model.state_dict(), save_path)
 
 def save_results_to_excel(predictions, file_name, sheet_name, combination, time, ground_truth):

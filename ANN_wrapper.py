@@ -51,6 +51,12 @@ def train_model_wrapper(X_train = X_train, y_train = y_train, X_test=X_test, y_t
         sp.save_model(model=prediction_model, hidden_layers_neurons=hidden_layers_neurons, learning_rate=learning_rate, num_epochs=num_epochs, optimizer=optimizer, test_loss=test_loss)
     return test_loss
 
+def bulk_training():
+    for i in range(1,10):
+        z = [i, i, i]
+        print(z)
+        train_model_wrapper(hidden_layers_neurons=z, show_output_data=False)
+
 def train_model_with_cross_validation(X_cr = X, y_cr = y, hidden_layers_neurons = hp.neurons_in_hidden_layers, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
     #   Cross validation
     num_folds = 5
@@ -172,10 +178,11 @@ def hyper_parameter_training():
             show_output_data=False
         )
 
-def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_name="data/rdata.xlsx"):
+def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_name="data/data.xlsx"):
     import tkinter as tk
     from tkinter import filedialog
     import re
+    from torch.utils.tensorboard import SummaryWriter
 
     root = tk.Tk()
     root.withdraw()
@@ -196,6 +203,12 @@ def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_
     prediction_model = prediction_model.to(hp.device)
     prediction_model.eval()
 
+    writer = SummaryWriter('runs/trained_model_visualization')
+
+    # Dodanie grafu modelu do TensorBoard (potrzebny przykładowy input)
+    dummy_input = torch.rand(1, 10)  # Zastąp `appropriate_input_shape` właściwymi wymiarami
+    writer.add_graph(prediction_model, dummy_input)
+
     test_data = dp.get_only_test_data_as_a_tensor(file_name=data_file_name)
     time = np.array(test_data.to('cpu'))[:,-1]
 
@@ -210,3 +223,5 @@ def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_
     else:
         compare_time, compare_predictions = dp.get_time_and_mass_change(file_name=compare_data_file_name)
         po.create_graph_of_material_change_over_time(time=time, material=predictions_filtered, time_ref=compare_time, material_ref=compare_predictions)
+    
+    writer.close()

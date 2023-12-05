@@ -8,6 +8,7 @@ from datetime import date
 import torch
 import torch.nn as nn
 import torch.optim.lr_scheduler as ls
+import torch.nn.init as init
 
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
@@ -24,41 +25,67 @@ Main Architecture
 #   Softplus work the best
 #   ELU + Softplus works really goodcls
 '''                                    
-hidden_layer_activation = nn.ELU()
+hidden_layer_activation = nn.LeakyReLU()
 output_activation = nn.Softplus()
 
 class PredictionModel(nn.Module):
-    def __init__(self, hidden_layers_neurons, hidden_layers_activation_function="ReLU", input_size = 10, is_batch_normalization_implemented = True, is_dropout = False, dropout_num = 0.2):
-        super().__init__()
-        self.hidden_layers = nn.ModuleList()
-        self.input_layer = nn.Linear(int(input_size), hidden_layers_neurons[0])
-        self.hidden_layers.append(self.input_layer)
+    def __init__(self, hidden_layers_neurons, input_size=10, hidden_layers_activation_function="LeakyReLU",
+                 is_batch_normalization_implemented=True, is_dropout=True, dropout_num=0.1,
+                 weight_init_method='xavier_uniform_', L2_reg=0.0, output_activation_function="Softplus"):
+        
+        super(PredictionModel, self).__init__()
+        self.hidden_layers_activation_function = getattr(nn, hidden_layers_activation_function)()
+        self.output_activation_function = getattr(nn, hidden_layers_activation_function)()
 
+        self.weight_init = getattr(init, weight_init_method)
+        self.L2_reg = L2_reg
+
+        self.input_layer = nn.Linear(int(input_size), hidden_layers_neurons[0])
+        self.hidden_layers = nn.ModuleList([self.input_layer])
+
+        # Initialize weights of the input layer
+        self.weight_init(self.input_layer.weight)
+
+        # Add batch normalization if specified
         if is_batch_normalization_implemented:
             self.hidden_layers.append(nn.BatchNorm1d(hidden_layers_neurons[0]))
         
-        self.hidden_layers.append(hidden_layer_activation)
+        self.hidden_layers.append(self.hidden_layers_activation_function)
         
+        # Define hidden layers
         for i in range(1, len(hidden_layers_neurons)):
-            self.hidden_layers.append(nn.Linear(hidden_layers_neurons[i - 1], hidden_layers_neurons[i]))
+            hidden_layer = nn.Linear(hidden_layers_neurons[i - 1], hidden_layers_neurons[i])
+            self.hidden_layers.append(hidden_layer)
+            
+            # Initialize weights of the hidden layer
+            self.weight_init(hidden_layer.weight)
             
             if is_batch_normalization_implemented:
                 self.hidden_layers.append(nn.BatchNorm1d(hidden_layers_neurons[i]))
             
-            self.hidden_layers.append(hidden_layer_activation)
+            self.hidden_layers.append(self.hidden_layers_activation_function)
 
             if is_dropout:
                 self.hidden_layers.append(nn.Dropout(p=dropout_num))
 
-        self.output_layer = nn.Linear(hidden_layers_neurons[len(hidden_layers_neurons) - 1], 1)
+        self.output_layer = nn.Linear(hidden_layers_neurons[-1], 1)
         self.hidden_layers.append(self.output_layer)
+
+        self.weight_init(self.output_layer.weight)
 
     def forward(self, x):
         for layer in self.hidden_layers:
             x = layer(x)
-        
-        x = output_activation(x)
-        return x
+        return self.output_activation_function(x)
+    
+    def L2_penalty(self):
+        l2_reg = None
+        for W in self.parameters():
+            if l2_reg is None:
+                l2_reg = W.norm(2)
+            else:
+                l2_reg = l2_reg + W.norm(2)
+        return self.L2_reg * l2_reg
 
 #   ____________________________    Training Functions  _________________________________
 #   Basic training function
@@ -71,7 +98,7 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs):
     X_train = X_train.to(hp.device)
     y_train = y_train.to(hp.device)
 
-    scheduler = ls.StepLR(opt_func, step_size=hp.num_epochs//4, gamma=0.1)   #LS scheduler -> TODO parametrized and improve it   
+    scheduler = ls.StepLR(opt_func, step_size=hp.num_epochs//3, gamma=0.1)   #LS scheduler -> TODO parametrized and improve it   
 
     start_time = time.time()
     previous_train_loss = 0
@@ -83,6 +110,7 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs):
         predictions = model(X_train)
                 
         train_loss = loss_fun(predictions, y_train.unsqueeze(1))
+        train_loss += model.L2_penalty()
         train_loss.backward()
         opt_func.step()
                    
@@ -99,12 +127,13 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs):
             epoch_till_not_change+=1
         else:
             epoch_till_not_change = 0
-        if epoch_till_not_change > 100:
-            print(f'Early stop in epoch: {epoch}. Loss: {train_loss.item()}')
-            previous_train_loss = train_loss.item()
-            break
 
         previous_train_loss = train_loss.item()
+
+        if epoch_till_not_change > 300:
+            print(f'Early stop in epoch: {epoch}. Loss: {train_loss.item()}')
+            break
+
         
     end_time = time.time()
     train_time = end_time - start_time
