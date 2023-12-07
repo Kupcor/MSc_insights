@@ -1,21 +1,26 @@
+#   My custo files
 import ANN_model_template as model
-import archive.model_5_layers as ob_model
-
-from datetime import date
-
-import torch
-import torch.nn as nn
-from sklearn.model_selection import KFold
-from sklearn.metrics import r2_score
-
-from torch.utils.tensorboard import SummaryWriter
-
 import data_preparation as dp
 import hyper_parameters as hp
 import snippets as sp
 import prepare_outputs as po
 import data_preparation as dp
 
+#   standard python libraries
+from datetime import date
+
+#   PyTorch
+import torch
+import torch.nn as nn
+
+#   Sklearn libraries
+from sklearn.model_selection import KFold
+from sklearn.metrics import r2_score
+
+#   TensorBoard
+from torch.utils.tensorboard import SummaryWriter
+
+#   Standard ML and DS libraries
 import numpy as np
 import pandas as pd
 
@@ -25,17 +30,21 @@ X, y, hp.x_scaler, hp.y_scaler = dp.get_standarized_data(hp.DATA_FILE)
 #X, y = dp.load_training_data(hp.DATA_FILE)
 X_train, X_test, y_train, y_test = dp.get_splited_training_data(X, y, hp.SEED, hp.train_size_rate)
 
-def train_model_wrapper(X_train = X_train, y_train = y_train, X_test=X_test, y_test=y_test, X_val=None, y_val=None, hidden_layers_neurons = hp.neurons_in_hidden_layers, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg, model_save=True, show_output_data=True):
+"""
+Train model wrapper
+Standard model training and testing
+"""
+def train_model_wrapper(X_train = X_train, y_train = y_train, X_test=X_test, y_test=y_test, X_val=None, y_val=None, hidden_layers_neurons = hp.neurons_in_hidden_layers, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg, model_save=True, show_output_data=True, device=hp.device):
     prediction_model = model.PredictionModel(hidden_layers_neurons = hidden_layers_neurons)
-    prediction_model = prediction_model.to(hp.device)
+    prediction_model = prediction_model.to(device)
     loss_function = nn.MSELoss() 
     
     #   Select optimizer
     optimizer = sp.select_optimizer(prediction_model, opt_arg=opt_func, lr=learning_rate)
     #   Traing model
-    losses_for_training_curve, training_predictions, last_epoch_loss = model.train_model(model=prediction_model, X_train=X_train, y_train=y_train, loss_fun=loss_function, opt_func=optimizer, epochs=num_epochs)
+    losses_for_training_curve, training_predictions, last_epoch_loss = model.train_model(model=prediction_model, X_train=X_train, y_train=y_train, loss_fun=loss_function, opt_func=optimizer, epochs=num_epochs, device=device)
     #   Test model
-    test_loss = model.test_model(model=prediction_model, X_test=X_test, y_test=y_test, loss_fun=loss_function)
+    test_loss, r2 = model.test_model(model=prediction_model, X_test=X_test, y_test=y_test, loss_fun=loss_function, device=device)
     
     #   Model validation
     if X_val is not None and y_val is not None:
@@ -45,44 +54,18 @@ def train_model_wrapper(X_train = X_train, y_train = y_train, X_test=X_test, y_t
     if show_output_data:
         po.plot_predictions(target_data=y_train, loss=last_epoch_loss, predictions=training_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
         po.loss_oscilation(losses=losses_for_training_curve, opt=opt_func, epochs=num_epochs, lr=learning_rate)
+        po.scatter_plot(target_data=y_train, loss=last_epoch_loss, predictions=training_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
 
     #   Save model
     if model_save:
         sp.save_model(model=prediction_model, hidden_layers_neurons=hidden_layers_neurons, learning_rate=learning_rate, num_epochs=num_epochs, optimizer=optimizer, test_loss=test_loss)
     return test_loss
 
-def bulk_training():
-    for i in range(1,10):
-        z = [i, i, i]
-        print(z)
-        train_model_wrapper(hidden_layers_neurons=z, show_output_data=False)
-
-def train_model_with_cross_validation(X_cr = X, y_cr = y, hidden_layers_neurons = hp.neurons_in_hidden_layers, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
-    #   Cross validation
-    num_folds = 5
-    kf = KFold(n_splits=num_folds, shuffle=True, random_state=42)
-    fold_loss_average = 0
-    root_average = 0
-
-    for fold, (train_idx, test_idx) in enumerate(kf.split(X_cr, y_cr)):
-        print(f"Fold number {fold} start")
-        if max(train_idx) >= len(X_cr) or max(test_idx) >= len(X_cr):
-            print("Invalid indices in fold", fold)
-        else:
-            X_train, y_train = X_cr[train_idx], y_cr[train_idx]
-            X_test, y_test = X_cr[test_idx], y_cr[test_idx]
-        X_tensor_train, y_tensor_train = dp.get_test_data_converted_to_tensor(X_train, y_train)
-        X_tensor_test, y_tensor_test = dp.get_test_data_converted_to_tensor(X_test, y_test)
-        
-        # Train and evaluate the model for this fold.
-        test_loss, root = train_model_wrapper(X_train = X_tensor_train, y_train = y_tensor_train, X_test=X_tensor_test, y_test=y_tensor_test, X_val=None, y_val=None, hidden_layers_neurons = hidden_layers_neurons, num_epochs=num_epochs, learning_rate=learning_rate, opt_func=opt_func, model_save=False, show_output_data=False)
-        print(f'Finished fold {fold} Test Loss: {test_loss}')
-        fold_loss_average += test_loss
-        root_average += root
-    
-    print(f"Average loss during training: {fold_loss_average / num_folds} | Average R root error: {root_average / num_folds}")
 
 
+"""
+
+"""
 #   Second parameter is a file with new predictions
 def bulk_predictions(model_file_name, data_file_name="data/bulks.xlsx", standarized_data=False, scaler=None):
     import re
@@ -155,29 +138,6 @@ def bulk_predictions_on_new_data(model_file_name, data_file_name="data/wynikowy_
         predictions_list = [item for sublist in predictions for item in sublist]
         sp.save_results_to_excel_new_data(predictions_list, data_file_name, sheet_name, sheet_name, time)
 
-#   TODO Leave it for now
-def hyper_parameter_training():
-    import hyper_parameter_tuning as hpt
-    hyperparameters_set = hpt.generate_hyperparameter_combinations(100)
-    for hyperparameters in hyperparameters_set:
-        hidden_layers_neurons = hyperparameters['hidden_layers_neurons']
-        num_epochs = hyperparameters['num_epochs']
-        learning_rate = hyperparameters['learning_rate']
-        opt_func = hyperparameters['opt_func']
-
-        print(f"Training: {hidden_layers_neurons} {num_epochs} {learning_rate} {opt_func}")
-
-        train_model_wrapper(
-            X_train=X_train,
-            y_train=y_train,
-            hidden_layers_neurons=hidden_layers_neurons,
-            num_epochs=num_epochs,
-            learning_rate=learning_rate,
-            opt_func=opt_func,
-            model_save=True, 
-            show_output_data=False
-        )
-
 def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_name="data/data.xlsx"):
     import tkinter as tk
     from tkinter import filedialog
@@ -225,3 +185,34 @@ def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_
         po.create_graph_of_material_change_over_time(time=time, material=predictions_filtered, time_ref=compare_time, material_ref=compare_predictions)
     
     writer.close()
+
+
+
+### Temporary no needed    
+"""
+Redundant for now
+"""
+def train_model_with_cross_validation(X_cr = X, y_cr = y, hidden_layers_neurons = hp.neurons_in_hidden_layers, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg):
+    #   Cross validation
+    num_folds = 5
+    kf = KFold(n_splits=num_folds, shuffle=True, random_state=42)
+    fold_loss_average = 0
+    root_average = 0
+
+    for fold, (train_idx, test_idx) in enumerate(kf.split(X_cr, y_cr)):
+        print(f"Fold number {fold} start")
+        if max(train_idx) >= len(X_cr) or max(test_idx) >= len(X_cr):
+            print("Invalid indices in fold", fold)
+        else:
+            X_train, y_train = X_cr[train_idx], y_cr[train_idx]
+            X_test, y_test = X_cr[test_idx], y_cr[test_idx]
+        X_tensor_train, y_tensor_train = dp.get_test_data_converted_to_tensor(X_train, y_train)
+        X_tensor_test, y_tensor_test = dp.get_test_data_converted_to_tensor(X_test, y_test)
+        
+        # Train and evaluate the model for this fold.
+        test_loss, root = train_model_wrapper(X_train = X_tensor_train, y_train = y_tensor_train, X_test=X_tensor_test, y_test=y_tensor_test, X_val=None, y_val=None, hidden_layers_neurons = hidden_layers_neurons, num_epochs=num_epochs, learning_rate=learning_rate, opt_func=opt_func, model_save=False, show_output_data=False)
+        print(f'Finished fold {fold} Test Loss: {test_loss}')
+        fold_loss_average += test_loss
+        root_average += root
+    
+    print(f"Average loss during training: {fold_loss_average / num_folds} | Average R root error: {root_average / num_folds}")

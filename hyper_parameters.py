@@ -56,12 +56,13 @@ device = torch.device("cpu")
 #   Meta data
 today = date.today()      
 MODEL_NAME = sys.argv[0][:-3]
-DATA_FILE = "data/data.xlsx"
+DATA_FILE = "data/data_cleared.xlsx"
 TESTING_FILE = "data/chart_data.xlsx"
 TEST_DATA = "data/test_data.xlsx"
 TENSOR_BOARD_DIR = f"tensor_board_logs/{MODEL_NAME}"
 MODEL_FILE_NAME = f"model_{lr}_{num_epochs}_{optimizer_arg}_{today}"
 FEATURES = "Temperature[C]", "Zr[at%]", "Nb[at%]", "Mo[at%]", "Cr[at%]", "Al[at%]", "Ti[at%]", "Ta[at%]", "W[at%]", "Time[h]"
+PREDICTION = "Mass Change [kg.cm2]"
 
 #   Temporarly redundant parameters
 cross_validation_num = 5

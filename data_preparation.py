@@ -5,25 +5,39 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-def load_training_data(file_name):
-    data = pd.read_excel(file_name)
-
-    for column in data.columns:
-            data[column] = data[column].apply(lambda x: float(x.replace(',', '.')) if isinstance(x, str) else x)
-
-    #   3 sigma
+"""
+Simple function for outlier handling
+"""
+def handle_outliers(data):
     mean = np.mean(data['Mass Change [mg.cm2]'])
     std = np.std(data['Mass Change [mg.cm2]'])
     lower_bound = mean - 3 * std
     upper_bound = mean + 3 * std
 
     data = data[(data['Mass Change [mg.cm2]'] >= lower_bound) & (data['Mass Change [mg.cm2]'] <= upper_bound)]
+    return data
+
+"""
+Load training data
+"""
+def load_training_data(file_name, handle_outliers=False):
+    data = pd.read_excel(file_name)
+
+    for column in data.columns:
+            data[column] = data[column].apply(lambda x: float(x.replace(',', '.')) if isinstance(x, str) else x)
+
+    if handle_outliers:
+        data = handle_outliers(data)
 
     data['Mass Change [mg.cm2]'] = pd.to_numeric(data['Mass Change [mg.cm2]'], errors='coerce')
     X = data[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]', 'Time [h]']].values
     y = data['Mass Change [mg.cm2]'].values
     return X, y
 
+"""
+Get standarized data
+Data standarization with standard scaler from sklearn library
+"""
 def get_standarized_data(file_name, output_scaling = False):
     X, y = load_training_data(file_name)
     x_scaler = StandardScaler()
@@ -36,6 +50,10 @@ def get_standarized_data(file_name, output_scaling = False):
     
     return X_scaled, y, x_scaler, None
 
+"""
+Get scaler
+Get used scallers for standarization 
+"""
 def get_scaler(file_name, output_scaling = False):
     X, y = load_training_data(file_name)
     x_scaler = StandardScaler()
@@ -48,6 +66,10 @@ def get_scaler(file_name, output_scaling = False):
     
     return x_scaler, None
 
+"""
+Get test data converted to tensor
+Convert datt to tensors used by pyTorch
+"""
 def get_test_data_converted_to_tensor(X, y):
     X_tensor = torch.tensor(X, dtype=torch.float32)
     y_tensor = torch.tensor(y, dtype=torch.float32)
@@ -58,6 +80,10 @@ def get_splited_training_data(X, y, seed, split_rate):
     X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=split_rate, random_state=seed)
     return X_train, X_test, y_train, y_test
 
+
+"""
+For now I will remain those functions
+"""
 # ________________ Before refactoring
 # Sparametryzuj poniższe funkcje, żeby przyjmowały wartości, a nie file name
 def get_splitted_training_test_and_validation_data(X, y, seed, split_rate):
@@ -79,6 +105,7 @@ def get_time_and_mass_change(file_name):
     X = data['Time [h]'].values
     y = data['Mass Change [mg.cm2]'].values
     return X, y
+
 
 # Maybe helpful in the future
 def get_test_and_train_loader(file_name, seed, training_rate, batch_size, shuffle):

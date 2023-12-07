@@ -5,6 +5,7 @@ import numpy as np
 from scipy.stats import norm
 import math
 from sklearn.decomposition import PCA
+import statsmodels.api as sm
 
 from sklearn.preprocessing import StandardScaler
 
@@ -209,10 +210,10 @@ def standarize_data(file_name):
 """
 Outliers data handling
 """
-def outliers_data_handling(file_name, m=2):
+def outliers_data_handling(file_name, m=3):
     new_name = "data/filtered_data.xlsx"
     data = pd.read_excel(file_name)
-    data = remove_outliers_iqr(data)
+    data = remove_outliers_iqr(data, threshold=m)
     data.dropna(axis='index', how='any', inplace=True)
     data.to_excel(new_name, columns=data.columns, index=False)
 
@@ -264,19 +265,4 @@ def PCA_analasis(file_name):
     data_with_pca = pd.DataFrame(principal_components, columns=["PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7"])
     data_with_pca.to_excel("data/PCA_results_7.xlsx", index=False)
 
-"""
-Multi-regression
-Three sets:
-- Ta [at%]
-- Zr [at%]
-- Time [h
---
-- Mo [at%]
-- Al [at%]
---
-- Ta [at%]
-- Nb [at%]
-- Time [h]
-"""
-def create_multi_regression(file_name):
-    print("placeholder")
+
