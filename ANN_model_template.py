@@ -1,5 +1,3 @@
-# Created 21.10.2023
-
 #   Standard python libraries
 import time
 from datetime import date
@@ -17,18 +15,12 @@ from sklearn.metrics import r2_score
 #   Tensor board
 from torch.utils.tensorboard import SummaryWriter
 
-#   ____________________________    Prediction Model  _________________________________
-'''
-Main Architecture 
-#   Softplus work the best
-#   ELU + Softplus works really goodcls
-'''                                    
-hidden_layer_activation = nn.LeakyReLU()
-output_activation = nn.Softplus()
-
+"""
+Main architecture of prediction model
+"""   
 class PredictionModel(nn.Module):
-    def __init__(self, hidden_layers_neurons, input_size=10, hidden_layers_activation_function="LeakyReLU",
-                 is_batch_normalization_implemented=False, is_dropout=True, dropout_num=0.1, weight_init_method='xavier_uniform_'):
+    def __init__(self, hidden_layers_neurons, input_size=10, num_epochs=1000, hidden_layers_activation_function="LeakyReLU",
+                 is_batch_normalization_implemented=False, is_dropout=False, dropout_num=0.1, weight_init_method='xavier_uniform_'):
         
         super(PredictionModel, self).__init__()
 
@@ -77,14 +69,17 @@ class PredictionModel(nn.Module):
             nn.init.xavier_uniform_(weight)
         elif self.weight_init_method == 'kaiming_normal_':
             nn.init.kaiming_normal_(weight, mode='fan_in', nonlinearity='leaky_relu')
-
+        
     def forward(self, x):
         for layer in self.hidden_layers:
             x = layer(x)
         return x
 
-#   ____________________________    Training Functions  _________________________________
-#   Basic training function
+"""
+Training function
+Adjusting model weights
+Gathering training model data
+"""
 def train_model(model, X_train, y_train, loss_fun, opt_func, epochs, device):
     #   Additional data gathering
     losses_for_training_curve = []
@@ -136,7 +131,10 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs, device):
 
     return losses_for_training_curve, predictions, last_epoch_loss
     
-#   Basic test function
+"""
+Main test function
+Validation trained model
+"""
 def test_model(model, X_test, y_test, loss_fun, device):
     model.eval()
 
@@ -153,9 +151,12 @@ def test_model(model, X_test, y_test, loss_fun, device):
     print(f'Loss during test: {test_loss.item()}')
     print(f"R square: {r2}")
 
-    return test_loss.item(), r2
+    return test_loss.item(), r2, predictions
 
-#   Basic validation function
+"""
+Main validation function
+TODO -> cross validation to be done
+"""
 def validate_without_batches(model, X_validate, y_validate, loss_fun, device, threshold=2):
     model.eval()
 

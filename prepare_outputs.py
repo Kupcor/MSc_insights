@@ -51,20 +51,26 @@ def plot_predictions(target_data, loss, opt, epochs, lr, split_rate = hp.train_s
     #plt.savefig(f"plots/{hp.MODEL_NAME}_predictions_{file_name}.jpg")
     plt.show()
 
-def scatter_plot(target_data, loss, opt, epochs, lr, split_rate = hp.train_size_rate, predictions=None):
+def scatter_plot(target_data, loss, opt, epochs, lr, split_rate = hp.train_size_rate, title="Train, last iteration, predictions", predictions=None):
     plt.figure(figsize=(15, 7))
     loss = round(loss, 2)
     info_text = f"Epoch: {epochs}\nLR: {lr}\nTraining rate: {split_rate}\nLoss: {loss}"
     plt.text(0.95, 0.95, info_text, transform=plt.gca().transAxes, verticalalignment='top', horizontalalignment='right', fontsize=12)
 
     target_data = target_data.detach().numpy()
-    plt.scatter(predictions, target_data, c="g", s=4, label="Ground Truth")
+    predictions = predictions.detach().numpy()
+    predictions = predictions.reshape(-1)
+    plt.scatter(predictions, target_data, c="g", s=5, label="Ground Truth")
+
+    max_value = max(max(predictions), max(target_data))
+    min_value = min(min(predictions), min(target_data))
+    plt.plot([min_value, max_value], [min_value, max_value], 'r--', label='Ideal Fit')
 
     file_name = f"{lr}_{epochs}_{opt}_{hp.today}"
     plt.legend(prop={"size": 14})
     plt.xlabel('Prediction')
     plt.ylabel('Target data')
-    plt.title(f'Scatter plot')
+    plt.title(f'{title}')
     plt.grid()
     #plt.savefig(f"plots/{hp.MODEL_NAME}_predictions_{file_name}.jpg")
     plt.show()

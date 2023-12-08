@@ -2,8 +2,14 @@ import hyper_parameters as hp
 import torch.optim as optim
 import torch
 
-#   ____________________________    Select Optimizer  _________________________________
-#   By defaoult optimizer is Adam
+"""
+Function: Select Optimizer
+    Param:
+        model - model to train
+        opt_arg - selected optimizer, e.g.: "Adam"
+        lr - learning rate
+    Function initialize selected optimizer and returns its instance
+"""
 def select_optimizer(model, opt_arg=hp.optimizer_arg, lr=hp.lr):
     if opt_arg == "Adam":
         optimizer = optim.Adam(model.parameters(), lr)
@@ -24,25 +30,46 @@ def select_optimizer(model, opt_arg=hp.optimizer_arg, lr=hp.lr):
         optimizer = optim.Adam(model.parameters(), lr)
     return optimizer
 
-def select_activation_function(activation_function):
-    if activation_function == "ReLU":
-        return 
-
-def save_model(model, hidden_layers_neurons, learning_rate, num_epochs, optimizer, test_loss):
+"""
+Function: Save Model
+    Param:
+        model - model to save
+        hidden_layers_neurons - string of numbers of neurons in hidden layers, e.g.: 10-10-10 - 3 hidden layers, 10 neurons in each
+        learning_rate - model learning rate
+        numb_epochs - number of lerning epochs
+        optimizer - optimizer that was used during training
+        test_loss - test loss during model validation - MSE - average squared difference between the predicted values and the actual values
+        r2 - R-Squared - coefficient of determination - regression score function
+    Function saves trained model
+"""
+def save_model(model, hidden_layers_neurons, learning_rate, num_epochs, optimizer, test_loss, r2, date=hp.today):
     neurons_str = '-'.join(map(str, hidden_layers_neurons))
-    file_name = "model_{}_hidden_layers_{}_{}_{}_{}_{}_validation_testLoss_{}".format(
+    file_name = "model_{}_hidden_layers_{}_{}_{}_{}_{}_testLoss__{}_R2_{}".format(
     len(hidden_layers_neurons),
     neurons_str,
     learning_rate,
     num_epochs,
     optimizer.__class__.__name__,
-    hp.today,
-    test_loss
+    date,
+    test_loss,
+    r2
     )
-    save_path = "3_layers_models/" + file_name + '.pth'
+    save_path = "trained_models/" + file_name + '.pth'
     torch.save(model.state_dict(), save_path)
 
-def save_results_to_excel(predictions, file_name, sheet_name, combination, time, ground_truth):
+"""
+Function: Save Results To Excel
+    Param:
+        predictions - model outputs
+        file_name - xlsx file to load
+        sheet_name - new sheet name
+        combination - currenty combination (predictions on a given chemical composition)
+        time - time series array
+        ground_truth - true values of preditions
+    Function overwrites provided excel file and adds model results (results and diagrams) to it
+    Need to be used with combination of create_file_with_unique_sets in bulk_predictions function in Ann_wraopper.py
+"""
+def save_results_to_excel(predictions, file_name, sheet_name, combination, time, ground_truth, r2):
     from openpyxl import load_workbook
     import openpyxl
     import matplotlib.pyplot as plt
@@ -63,14 +90,12 @@ def save_results_to_excel(predictions, file_name, sheet_name, combination, time,
     ax.scatter(time, predictions, label='Predictions')
     ax.scatter(time, ground_truth, label='Ground Truth')
 
-    # Dodaj etykiety i legendę
     ax.set_xlabel('Time')
     ax.set_ylabel('Mass Change')
-    ax.set_title(combination)
+    ax.set_title(f"{combination} | {r2}")
     ax.legend()
     ax.grid()
 
-    # Zapisz rysunek do arkusza
     img_path = f'image/{sheet_name}.png' 
     plt.savefig(img_path)
 
@@ -78,6 +103,17 @@ def save_results_to_excel(predictions, file_name, sheet_name, combination, time,
     sheet.add_image(img, 'M10') 
     workbook.save(file_name)
 
+"""
+Function save results to excel new data
+Param:
+        predictions - model outputs
+        file_name - xlsx file to load
+        sheet_name - new sheet name
+        combination - currenty combination (predictions on a given chemical composition)
+        time - time series array
+    Function overwrites provided excel file and adds model results (results and diagrams) to it
+    Need to be used with combination of create_file_with_unique_sets in bulk_predictions_on_new_data function in Ann_wraopper.py
+"""
 def save_results_to_excel_new_data(predictions, file_name, sheet_name, combination, time):
     from openpyxl import load_workbook
     import openpyxl
@@ -98,14 +134,12 @@ def save_results_to_excel_new_data(predictions, file_name, sheet_name, combinati
     fig, ax = plt.subplots()
     ax.scatter(time, predictions, label='Predictions', s=10)
 
-    # Dodaj etykiety i legendę
     ax.set_xlabel('Time')
     ax.set_ylabel('Mass Change')
     ax.set_title(combination)
     ax.legend()
     ax.grid()
 
-    # Zapisz rysunek do arkusza
     img_path = f'image/{sheet_name}.png' 
     plt.savefig(img_path)
 
@@ -113,12 +147,15 @@ def save_results_to_excel_new_data(predictions, file_name, sheet_name, combinati
     sheet.add_image(img, 'M10') 
     workbook.save(file_name)
 
-## !!! Important function
-def data_reader(file_name='bulk_results'):
+"""
+Create file with unique sets
+Read basic data file and categorize data to unique sets | training and tests data
+"""
+def create_file_with_unique_sets(file_name='bulk_results'):
     import pandas as pd
     import matplotlib.pyplot as plt
 
-    df = pd.read_excel('data/data.xlsx')
+    df = pd.read_excel('data/data_cleared.xlsx')
 
     selected_row = df[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]']]
 
@@ -139,8 +176,8 @@ def data_reader(file_name='bulk_results'):
                         (df['Al [at%]'] == row['Al [at%]']) & 
                         (df['W [at%]'] == row['W [at%]']) & 
                         (df['Zr [at%]'] == row['Zr [at%]'])]
-
-            subset = subset.drop(columns=['Parametr X'])
+            
+            #subset = subset.drop(columns=['Parametr X'])
 
             subset['Mass Change [mg.cm2]'] = pd.to_numeric(subset['Mass Change [mg.cm2]'], errors='coerce')
 
@@ -163,7 +200,11 @@ def data_reader(file_name='bulk_results'):
             chart.set_y_axis({'name': 'Mass Change'})
             worksheet.insert_chart('N2', chart)
 
-def redundant_func(file_name):
+"""
+Create sets of new data to predict
+Create a xlsx with same combinations of temp and composition and linear time
+"""
+def create_sets_of_new_data_to_predict(file_name):
     import pandas as pd
     from openpyxl import Workbook
 
@@ -188,6 +229,11 @@ def redundant_func(file_name):
 
     wb.save(f"{file_name}")
 
+
+"""
+Function select file
+    Functions is used to select previously saved model and return its path and file name in order to use that parameters in other functions
+"""
 def select_file():
     import tkinter as tk
     from tkinter import filedialog

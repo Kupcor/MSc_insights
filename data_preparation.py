@@ -5,6 +5,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+import joblib
+
 """
 Simple function for outlier handling
 """
@@ -39,30 +41,35 @@ Get standarized data
 Data standarization with standard scaler from sklearn library
 """
 def get_standarized_data(file_name, output_scaling = False):
-    X, y = load_training_data(file_name)
+    X, y = load_training_data(file_name)  
+
     x_scaler = StandardScaler()
     X_scaled = x_scaler.fit_transform(X)
-    
+
     if output_scaling:
         y_scaler = StandardScaler()
         y_scaled = y_scaler.fit_transform(y.reshape(-1, 1))
+
+        # Zapisz skalery do plików .pkl
+        joblib.dump(x_scaler, 'data/scaler_x.pkl')
+        joblib.dump(y_scaler, 'data/scaler_y.pkl')
+
         return X_scaled, y_scaled, x_scaler, y_scaler
-    
+
+    joblib.dump(x_scaler, 'data/scaler_x.pkl')
+
     return X_scaled, y, x_scaler, None
 
 """
 Get scaler
 Get used scallers for standarization 
 """
-def get_scaler(file_name, output_scaling = False):
-    X, y = load_training_data(file_name)
-    x_scaler = StandardScaler()
-    X_scaled = x_scaler.fit_transform(X)
+def get_scaler(output_scaling = False):
+    x_scaler = joblib.load('data/scaler_x.pkl')
     
     if output_scaling:
-        y_scaler = StandardScaler()
-        y_scaled = y_scaler.fit_transform(y.reshape(-1, 1))
-        return x_scaler, y_scaler
+        y_scaled = joblib.load('data/scaler_y.pkl')
+        return x_scaler, y_scaled
     
     return x_scaler, None
 
