@@ -3,10 +3,10 @@ import snippets as sp
 import data_preparation as dp
 import sys 
 
-
-
 if len(sys.argv) > 1:
-    aw.train_model_wrapper(model_save=True)
+
+    aw.cross_validate()
+    #aw.train_model_wrapper(model_save=True)
     #aw.train_model_with_cross_validation()
     #aw.bulk_training()
 else:

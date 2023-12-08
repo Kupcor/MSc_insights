@@ -10,7 +10,7 @@ import torch.nn.init as init
 
 #   sklearn - machine learning lib
 from sklearn.model_selection import KFold
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 
 #   Tensor board
 from torch.utils.tensorboard import SummaryWriter
@@ -69,7 +69,38 @@ class PredictionModel(nn.Module):
             nn.init.xavier_uniform_(weight)
         elif self.weight_init_method == 'kaiming_normal_':
             nn.init.kaiming_normal_(weight, mode='fan_in', nonlinearity='leaky_relu')
-        
+    
+    def fit(self, X_train, y_train, loss_fun, opt_func, epochs, device):
+        self.train()
+        self.to(device)
+        X_train = X_train.to(device)
+        y_train = y_train.to(device)
+
+        scheduler = ls.StepLR(opt_func, step_size=epochs//3, gamma=0.1)   #LS scheduler -> TODO parametrized and improve it   
+
+        start_time = time.time()
+        previous_train_loss = 0
+        epoch_till_not_change = 0
+
+        for epoch in range(epochs + 1):
+
+            opt_func.zero_grad()
+            predictions = self(X_train)
+                    
+            train_loss = loss_fun(predictions, y_train.unsqueeze(1))
+            train_loss.backward()
+            opt_func.step()
+                    
+            if epoch % 100 == 0 or epoch == epochs:
+                print(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {train_loss.item()} | LR: {round(opt_func.param_groups[0]["lr"], 7)} | Optimizer: {opt_func.__class__.__name__} | Device: {next(model.parameters()).device.type}')
+            
+            scheduler.step()
+            
+        end_time = time.time()
+        train_time = end_time - start_time
+        print(f'Loss in last epoch: {epoch}. Loss: {train_loss.item()}')
+        print(f'Training finished. Train time: {train_time}')
+
     def forward(self, x):
         for layer in self.hidden_layers:
             x = layer(x)
@@ -157,35 +188,35 @@ def test_model(model, X_test, y_test, loss_fun, device):
 Main validation function
 TODO -> cross validation to be done
 """
-def validate_without_batches(model, X_validate, y_validate, loss_fun, device, threshold=2):
+def validate_regression_model(model, X_validate, y_validate, loss_fun, device):
     model.eval()
 
     total_loss = 0.0
-    correct_predictions = 0
     total_samples = len(X_validate)
 
+    predictions = []
+    
     with torch.no_grad():
         for data, target in zip(X_validate, y_validate):
             data, target = data.to(device), target.to(device)
-            
-            target = target.unsqueeze(0).unsqueeze(0)
-            data = data.unsqueeze(0)
-
-            predictions = model(data)
-            loss = loss_fun(predictions, target)
+            output = model(data.unsqueeze(0))
+            loss = loss_fun(output, target.unsqueeze(0).unsqueeze(0))
             total_loss += loss.item()
+            predictions.append(output)
 
-            _, predicted = torch.max(predictions, 1)
-            if abs(predicted - target) <= threshold:
-                correct_predictions += 1
+    predictions = torch.cat(predictions, dim=0)
 
-    accuracy = correct_predictions / total_samples
+    predictions_np = predictions.cpu().numpy()
+    y_validate_np = y_validate.cpu().numpy()
+    r2 = r2_score(y_validate_np, predictions_np)
+    mse = mean_squared_error(y_validate_np, predictions_np)
+
     average_loss = total_loss / total_samples
 
-    print(f'\nValidation:\nAccuracy: {accuracy}\nAverage loss: {average_loss}')
+    print(f'\nValidation:\nMSE: {mse}\nAverage loss: {average_loss}\nR2 Score: {r2}\n')
     model.train()
 
-    return accuracy, average_loss    
+    return mse, average_loss, r2
 
 
 

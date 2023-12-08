@@ -64,6 +64,43 @@ def train_model_wrapper(X_train = X_train, y_train = y_train, X_test=X_test, y_t
         sp.save_model(model=prediction_model, hidden_layers_neurons=hidden_layers_neurons, learning_rate=learning_rate, num_epochs=num_epochs, optimizer=optimizer, test_loss=test_loss, r2=r2)
     return test_loss
 
+"""
+Cross validation
+To be honest, for now it does not make sense
+"""
+def cross_validate(X=X, y=y, hidden_layers_neurons=hp.neurons_in_hidden_layers, optimizer_fn=hp.optimizer_arg, lr=hp.lr, epochs=hp.num_epochs, device=hp.device, n_splits=5, threshold=0.5):
+    kf = KFold(n_splits=n_splits)
+    loss_function = nn.MSELoss() 
+
+    accuracies = []
+    losses = []
+    r2s = []
+
+    X, y = dp.get_test_data_converted_to_tensor(X, y)
+    i = 0
+
+    for train_index, validate_index in kf.split(X):
+        print(f"Cross val: {i}")
+        i += 1
+        X_train, X_validate = X[train_index], X[validate_index]
+        y_train, y_validate = y[train_index], y[validate_index]
+
+        prediction_model = model.PredictionModel(hidden_layers_neurons = hidden_layers_neurons, is_dropout=True, input_size=input_size)
+        prediction_model = prediction_model.to(device)
+
+        optimizer = sp.select_optimizer(prediction_model, opt_arg=optimizer_fn, lr=lr)
+
+        losses_for_training_curve, training_predictions, last_epoch_loss = model.train_model(model=prediction_model, X_train=X_train, y_train=y_train, loss_fun=loss_function, opt_func=optimizer, epochs=epochs, device=device)
+
+        # Walidacja
+        accuracy, average_loss, r2 = model.validate_regression_model(prediction_model, X_validate, y_validate, loss_function, device)
+        accuracies.append(accuracy)
+        losses.append(average_loss)
+        r2s.append(r2)
+    print("Summary:")
+    print(f"{sum(accuracies) / len(accuracies)}\n{sum(losses) / len(losses)}\n{sum(r2s) / len(r2s)}")
+    return sum(accuracies) / len(accuracies), sum(losses) / len(losses)
+
 
 """
 Bulks predictions
@@ -108,7 +145,7 @@ def bulk_predictions(model_file_name, data_file_name="data/bulks.xlsx", standari
         y_tensor = torch.tensor(y, dtype=torch.float32)
         raw_predictions = prediction_model(X_tensor)
         r2 = r2_score(y_ground_truth, raw_predictions.detach().numpy())    
-        
+
         data['Mass Change - predictions'] = raw_predictions.detach().numpy()
         predictions = raw_predictions.detach().numpy()
 
