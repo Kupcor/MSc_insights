@@ -7,7 +7,8 @@ import hyper_parameters as hp
 def loss_oscilation(losses, opt, epochs, lr, split_rate=hp.train_size_rate):
     plt.figure(figsize=(15, 7))
 
-    plot_rage = int(len(losses)//2)
+    #plot_rage = int(len(losses)//2)
+    plot_rage = 0
 
     x_axis = list(range(plot_rage, len(losses)))
     plt.scatter(x_axis, losses[plot_rage:], c="g", s=4, label="Testing data")
@@ -51,10 +52,10 @@ def plot_predictions(target_data, loss, opt, epochs, lr, split_rate = hp.train_s
     #plt.savefig(f"plots/{hp.MODEL_NAME}_predictions_{file_name}.jpg")
     plt.show()
 
-def scatter_plot(target_data, loss, opt, epochs, lr, split_rate = hp.train_size_rate, title="Train, last iteration, predictions", predictions=None):
+def scatter_plot(target_data, loss, opt, epochs, lr, mae, mse, r2="Missing r2", split_rate = hp.train_size_rate, title="Train, last iteration, predictions", predictions=None):
     plt.figure(figsize=(15, 7))
     loss = round(loss, 2)
-    info_text = f"Epoch: {epochs}\nLR: {lr}\nTraining rate: {split_rate}\nLoss: {loss}"
+    info_text = f"Epoch: {epochs}\nLR: {lr}\nTraining rate: {split_rate}\nLoss: {loss}\nMAE:{mae:.4f}\nMSE:{mse:.4f}"
     plt.text(0.95, 0.95, info_text, transform=plt.gca().transAxes, verticalalignment='top', horizontalalignment='right', fontsize=12)
 
     target_data = target_data.detach().numpy()
@@ -70,7 +71,7 @@ def scatter_plot(target_data, loss, opt, epochs, lr, split_rate = hp.train_size_
     plt.legend(prop={"size": 14})
     plt.xlabel('Prediction')
     plt.ylabel('Target data')
-    plt.title(f'{title}')
+    plt.title(f'{title} | R2: {r2:.4f}')
     plt.grid()
     #plt.savefig(f"plots/{hp.MODEL_NAME}_predictions_{file_name}.jpg")
     plt.show()

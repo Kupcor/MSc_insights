@@ -11,6 +11,7 @@ seed = 32                       #   Default seed
 neurons_in_hidden_layers = [13] #   Default - one hidden layer with 13 neurons
 x_scaler = None
 y_scaler = None
+activation_func = "ReLU"
 
 #   Set hyper parameters if they will be provided
 if len(sys.argv) > 1:
@@ -38,6 +39,9 @@ if len(sys.argv) > 6:
     for neuron in neurons:
         neurons_in_hidden_layers.append(int(neuron))
     print(f"Hidden layers set to {neurons_in_hidden_layers} | Number of hidden layers: {len(neurons_in_hidden_layers)}")
+if len(sys.argv) > 7:
+    print(f"Activation func set to {sys.argv[7]}")
+    activation_func = sys.argv[7]
 
 #   Additional training Meta Data
 SEED = seed
@@ -69,3 +73,48 @@ cross_validation_num = 5
 patience = 0.1 * num_epochs
 data_type = "float32"
 batch_size = 64                 #   Default batch size
+
+def set_hyperparameters_from_string(param_string):
+    lr = 0.001  # Domyślna wartość współczynnika uczenia
+    num_epochs = 10  # Domyślna liczba epok
+    optimizer_arg = "adam"  # Domyślny optymalizator
+    seed = 42  # Domyślny ziarno losowości
+    train_size_rate = 0.3  # Domyślny stosunek rozmiaru treningowego
+    neurons_in_hidden_layers = []  # Domyślne liczby neuronów w warstwach ukrytych
+    activation_func = "ELU"
+
+    params = param_string.split()
+
+    if len(params) > 0:
+        lr = float(params[0])
+        print(f"Lr set to {lr}")
+
+    if len(params) > 1:
+        num_epochs = int(params[1])
+        print(f"Epoch number set to {num_epochs}")
+
+    if len(params) > 2:
+        optimizer_arg = params[2]
+        print(f"Optimizer set to {optimizer_arg}")
+
+    if len(params) > 3:
+        seed = int(params[3])
+        print(f"Seed set to {seed}")
+
+    if len(params) > 4:
+        train_size_rate = float(params[4])
+        if train_size_rate > 0.8 or train_size_rate < 0.1:
+            train_size_rate = 0.3
+        print(f"Training size rate set to {train_size_rate}")
+
+    if len(params) > 5:
+        neurons = params[5].split(',')
+        for neuron in neurons:
+            neurons_in_hidden_layers.append(int(neuron))
+        print(f"Hidden layers set to {neurons_in_hidden_layers} | Number of hidden layers: {len(neurons_in_hidden_layers)}")
+
+    if len(params) > 6:
+        print(f"Activation func set to {params[6]}")
+        activation_func = params[6]
+
+    return lr, num_epochs, optimizer_arg, seed, train_size_rate, neurons_in_hidden_layers, activation_func

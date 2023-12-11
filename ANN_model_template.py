@@ -11,16 +11,23 @@ import torch.nn.init as init
 #   sklearn - machine learning lib
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.utils import shuffle
+from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
+
+import hyper_parameters as hp
 
 #   Tensor board
 from torch.utils.tensorboard import SummaryWriter
+
+activ_fun = "LeakyReLU"
 
 """
 Main architecture of prediction model
 """   
 class PredictionModel(nn.Module):
-    def __init__(self, hidden_layers_neurons, input_size=10, num_epochs=1000, hidden_layers_activation_function="LeakyReLU",
-                 is_batch_normalization_implemented=False, is_dropout=False, dropout_num=0.1, weight_init_method='xavier_uniform_'):
+    def __init__(self, hidden_layers_neurons, input_size=10, num_epochs=1000, hidden_layers_activation_function=activ_fun,
+                 is_batch_normalization_implemented=False, is_dropout=True, dropout_num=0.15, weight_init_method='xavier_uniform_'):
         
         super(PredictionModel, self).__init__()
 
@@ -40,6 +47,10 @@ class PredictionModel(nn.Module):
         
         #   Add activation function to first hidden layer
         self.hidden_layers.append(getattr(nn, hidden_layers_activation_function)())
+        print(hidden_layers_activation_function)
+
+        if is_dropout:
+            self.hidden_layers.append(nn.Dropout(p=dropout_num))
         
         # Define hidden layers
         for i in range(1, len(hidden_layers_neurons)):
@@ -69,37 +80,6 @@ class PredictionModel(nn.Module):
             nn.init.xavier_uniform_(weight)
         elif self.weight_init_method == 'kaiming_normal_':
             nn.init.kaiming_normal_(weight, mode='fan_in', nonlinearity='leaky_relu')
-    
-    def fit(self, X_train, y_train, loss_fun, opt_func, epochs, device):
-        self.train()
-        self.to(device)
-        X_train = X_train.to(device)
-        y_train = y_train.to(device)
-
-        scheduler = ls.StepLR(opt_func, step_size=epochs//3, gamma=0.1)   #LS scheduler -> TODO parametrized and improve it   
-
-        start_time = time.time()
-        previous_train_loss = 0
-        epoch_till_not_change = 0
-
-        for epoch in range(epochs + 1):
-
-            opt_func.zero_grad()
-            predictions = self(X_train)
-                    
-            train_loss = loss_fun(predictions, y_train.unsqueeze(1))
-            train_loss.backward()
-            opt_func.step()
-                    
-            if epoch % 100 == 0 or epoch == epochs:
-                print(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {train_loss.item()} | LR: {round(opt_func.param_groups[0]["lr"], 7)} | Optimizer: {opt_func.__class__.__name__} | Device: {next(model.parameters()).device.type}')
-            
-            scheduler.step()
-            
-        end_time = time.time()
-        train_time = end_time - start_time
-        print(f'Loss in last epoch: {epoch}. Loss: {train_loss.item()}')
-        print(f'Training finished. Train time: {train_time}')
 
     def forward(self, x):
         for layer in self.hidden_layers:
@@ -117,6 +97,7 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs, device):
 
     model.train()
     model.to(device)
+    y_clone = y_train
     X_train = X_train.to(device)
     y_train = y_train.to(device)
 
@@ -130,13 +111,24 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs, device):
 
         opt_func.zero_grad()
         predictions = model(X_train)
-                
-        train_loss = loss_fun(predictions, y_train.unsqueeze(1))
+        
+        predictions = predictions.squeeze(1)
+
+        #train_loss = loss_fun(predictions, y_train.unsqueeze(1))
+        train_loss = loss_fun(predictions, y_train)
+        
+
+        with torch.no_grad():
+            r2 = r2_score(y_train, predictions)
+        
+        mae = mean_absolute_error(predictions.detach().numpy(), y_clone)
+        mse = mean_squared_error(predictions.detach().numpy(), y_clone)
+
         train_loss.backward()
         opt_func.step()
                    
         if epoch % 100 == 0 or epoch == epochs:
-            print(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {train_loss.item()} | LR: {round(opt_func.param_groups[0]["lr"], 7)} | Optimizer: {opt_func.__class__.__name__} | Device: {next(model.parameters()).device.type}')
+            print(f'Epoch num: {epoch} / {epochs} completed | Loss for this epoch: {train_loss.item()} | R2: {r2} | MAE: {mae} | MSE: {mse} | LR: {round(opt_func.param_groups[0]["lr"], 7)} | Optimizer: {opt_func.__class__.__name__} | Device: {next(model.parameters()).device.type}')
         
         scheduler.step()
 
@@ -157,10 +149,11 @@ def train_model(model, X_train, y_train, loss_fun, opt_func, epochs, device):
 
     end_time = time.time()
     train_time = end_time - start_time
+
     print(f'Loss in last epoch: {epoch}. Loss: {train_loss.item()}')
     print(f'Training finished. Train time: {train_time}')
 
-    return losses_for_training_curve, predictions, last_epoch_loss
+    return losses_for_training_curve, predictions, last_epoch_loss, r2, mae, mse
     
 """
 Main test function
@@ -178,11 +171,16 @@ def test_model(model, X_test, y_test, loss_fun, device):
         predictions = predictions.squeeze(1)
         test_loss = loss_fun(predictions, y_test)
     r2 = r2_score(y_test, predictions)
+    mae = mean_absolute_error(predictions.detach().numpy(), y_test.detach().numpy())
+    mse = mean_squared_error(predictions.detach().numpy(), y_test.detach().numpy())
+
+
     print(f'\nTest finished')
     print(f'Loss during test: {test_loss.item()}')
     print(f"R square: {r2}")
+    print(f"MAE: {mae}")
 
-    return test_loss.item(), r2, predictions
+    return test_loss.item(), r2, predictions, mae, mse
 
 """
 Main validation function
@@ -218,5 +216,21 @@ def validate_regression_model(model, X_validate, y_validate, loss_fun, device):
 
     return mse, average_loss, r2
 
+### Experimental
 
+"""
+Feature importance
+"""
+def permutation_feature_importance(model, X_test, y_test, metric=r2_score):
+    baseline_performance = metric(model(X_test).detach().numpy(), y_test.numpy())
+    importance_scores = []
+
+    for i in range(X_test.shape[1]):
+        X_test_shuffled = X_test.clone()
+        X_test_shuffled[:, i] = shuffle(X_test_shuffled[:, i])
+        shuffled_performance = metric(model(X_test_shuffled).detach().numpy(), y_test.numpy())
+        importance = baseline_performance - shuffled_performance
+        importance_scores.append(importance)
+    print(importance_scores)
+    return importance_scores
 

@@ -2,6 +2,8 @@ import hyper_parameters as hp
 import torch.optim as optim
 import torch
 
+import numpy as np
+
 """
 Function: Select Optimizer
     Param:
@@ -69,7 +71,7 @@ Function: Save Results To Excel
     Function overwrites provided excel file and adds model results (results and diagrams) to it
     Need to be used with combination of create_file_with_unique_sets in bulk_predictions function in Ann_wraopper.py
 """
-def save_results_to_excel(predictions, file_name, sheet_name, combination, time, ground_truth, r2):
+def save_results_to_excel(predictions, file_name, sheet_name, combination, time, ground_truth, r2, prediciton_loss, mae, huber_loss_value):
     from openpyxl import load_workbook
     import openpyxl
     import matplotlib.pyplot as plt
@@ -92,7 +94,7 @@ def save_results_to_excel(predictions, file_name, sheet_name, combination, time,
 
     ax.set_xlabel('Time')
     ax.set_ylabel('Mass Change')
-    ax.set_title(f"{combination} | {r2}")
+    ax.set_title(f"{combination} | {r2} | MSE Loss {prediciton_loss:.4f} | MAE {mae:.4f}\nLoss: {huber_loss_value}")
     ax.legend()
     ax.grid()
 
@@ -100,7 +102,25 @@ def save_results_to_excel(predictions, file_name, sheet_name, combination, time,
     plt.savefig(img_path)
 
     img = openpyxl.drawing.image.Image(img_path)
-    sheet.add_image(img, 'M10') 
+    sheet.add_image(img, 'M10')
+
+    fig2, ax_2 = plt.subplots()
+    ax_2.scatter(ground_truth, predictions, label='Predictions')
+
+    z = np.polyfit(ground_truth, predictions, 1)
+    p = np.poly1d(z)
+    plt.plot(ground_truth, p(ground_truth), 'r--', label='Trend Line')
+
+    ax_2.set_xlabel('Mass change - ground truth')
+    ax_2.set_ylabel('Mass Change - predictions')
+    ax_2.set_title(f"{combination} | {r2} | MSE Loss {prediciton_loss:.4f} | MAE {mae:.4f}")
+    ax_2.legend()
+    ax_2.grid()
+    img_path_2 = f'image/{sheet_name}_2.png' 
+    plt.savefig(img_path_2)
+    img_2 = openpyxl.drawing.image.Image(img_path_2)
+    sheet.add_image(img_2, 'W10')
+
     workbook.save(file_name)
 
 """
@@ -155,7 +175,7 @@ def create_file_with_unique_sets(file_name='bulk_results'):
     import pandas as pd
     import matplotlib.pyplot as plt
 
-    df = pd.read_excel('data/data_cleared.xlsx')
+    df = pd.read_excel('data/data_cleared_with_old_data.xlsx')
 
     selected_row = df[['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]']]
 

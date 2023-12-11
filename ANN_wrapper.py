@@ -16,6 +16,7 @@ import torch.nn as nn
 #   Sklearn libraries
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
+from sklearn.metrics import mean_absolute_error
 
 #   TensorBoard
 from torch.utils.tensorboard import SummaryWriter
@@ -37,27 +38,30 @@ Entire process of training model
 Standard model training and testing
 """
 def train_model_wrapper(X_train = X_train, y_train = y_train, X_test=X_test, y_test=y_test, X_val=None, y_val=None, hidden_layers_neurons = hp.neurons_in_hidden_layers, num_epochs=hp.num_epochs, learning_rate=hp.lr, opt_func=hp.optimizer_arg, model_save=True, show_output_data=True, device=hp.device, input_size=input_size):
-    prediction_model = model.PredictionModel(hidden_layers_neurons = hidden_layers_neurons, is_dropout=False, input_size=input_size)
+    prediction_model = model.PredictionModel(hidden_layers_neurons = hidden_layers_neurons, input_size=input_size)
     prediction_model = prediction_model.to(device)
-    loss_function = nn.MSELoss() 
+    #loss_function = nn.MSELoss() 
+    loss_function = nn.HuberLoss()
     
     #   Select optimizer
     optimizer = sp.select_optimizer(prediction_model, opt_arg=opt_func, lr=learning_rate)
     #   Traing model
-    losses_for_training_curve, training_predictions, last_epoch_loss = model.train_model(model=prediction_model, X_train=X_train, y_train=y_train, loss_fun=loss_function, opt_func=optimizer, epochs=num_epochs, device=device)
+    losses_for_training_curve, training_predictions, last_epoch_loss, r2_train, mae_traing, mse_training = model.train_model(model=prediction_model, X_train=X_train, y_train=y_train, loss_fun=loss_function, opt_func=optimizer, epochs=num_epochs, device=device)
     #   Test model
-    test_loss, r2, test_predictions = model.test_model(model=prediction_model, X_test=X_test, y_test=y_test, loss_fun=loss_function, device=device)
+    test_loss, r2, test_predictions, mae_test, mse_test = model.test_model(model=prediction_model, X_test=X_test, y_test=y_test, loss_fun=loss_function, device=device)
     
+    importance_score = model.permutation_feature_importance(prediction_model, X_test, y_test)
+
     #   Model validation
     if X_val is not None and y_val is not None:
         accuracy, average_loss = model.validate_without_batches(model=prediction_model, X_validate=X_val, y_validate=y_val, loss_fun=loss_function, device = hp.device)
 
     #   Show plots
     if show_output_data:
-        po.plot_predictions(target_data=y_train, loss=last_epoch_loss, predictions=training_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
+        #po.plot_predictions(target_data=y_train, loss=last_epoch_loss, predictions=training_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
         po.loss_oscilation(losses=losses_for_training_curve, opt=opt_func, epochs=num_epochs, lr=learning_rate)
-        po.scatter_plot(target_data=y_train, loss=last_epoch_loss, predictions=training_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs)
-        po.scatter_plot(target_data=y_test, loss=test_loss, predictions=test_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs, title="Test predictions")
+        po.scatter_plot(target_data=y_train, loss=last_epoch_loss, predictions=training_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs, r2=r2_train, mae=mae_traing, mse=mse_training)
+        po.scatter_plot(target_data=y_test, loss=test_loss, r2=r2, predictions=test_predictions, opt=opt_func, lr=learning_rate, epochs=num_epochs, title="Test predictions", mae=mae_test, mse=mse_test)
 
     #   Save model
     if model_save:
@@ -85,7 +89,7 @@ def cross_validate(X=X, y=y, hidden_layers_neurons=hp.neurons_in_hidden_layers, 
         X_train, X_validate = X[train_index], X[validate_index]
         y_train, y_validate = y[train_index], y[validate_index]
 
-        prediction_model = model.PredictionModel(hidden_layers_neurons = hidden_layers_neurons, is_dropout=True, input_size=input_size)
+        prediction_model = model.PredictionModel(hidden_layers_neurons = hidden_layers_neurons, input_size=input_size)
         prediction_model = prediction_model.to(device)
 
         optimizer = sp.select_optimizer(prediction_model, opt_arg=optimizer_fn, lr=lr)
@@ -102,6 +106,7 @@ def cross_validate(X=X, y=y, hidden_layers_neurons=hp.neurons_in_hidden_layers, 
     return sum(accuracies) / len(accuracies), sum(losses) / len(losses)
 
 
+
 """
 Bulks predictions
 Predictions on individual data sets
@@ -110,6 +115,8 @@ def bulk_predictions(model_file_name, data_file_name="data/bulks.xlsx", standari
     import re
     from openpyxl import load_workbook
     sp.create_file_with_unique_sets(data_file_name)  #   This is very important function here!
+    loss_fun = nn.MSELoss()
+    huber_loss = nn.HuberLoss()
     
     print(f"Started operations on file {data_file_name}")
 
@@ -144,13 +151,17 @@ def bulk_predictions(model_file_name, data_file_name="data/bulks.xlsx", standari
         X_tensor = torch.tensor(X, dtype=torch.float32)
         y_tensor = torch.tensor(y, dtype=torch.float32)
         raw_predictions = prediction_model(X_tensor)
-        r2 = r2_score(y_ground_truth, raw_predictions.detach().numpy())    
+        r2 = r2_score(y_ground_truth, raw_predictions.detach().numpy())
+        r_predictions = raw_predictions.squeeze(1)
+        prediciton_loss = loss_fun(r_predictions, y_tensor) 
+        huber_loss_value = huber_loss(r_predictions, y_tensor)
+        mae = mean_absolute_error(r_predictions.detach().numpy(), y)   
 
         data['Mass Change - predictions'] = raw_predictions.detach().numpy()
         predictions = raw_predictions.detach().numpy()
 
         predictions_list = [item for sublist in predictions for item in sublist]
-        sp.save_results_to_excel(predictions_list, data_file_name, sheet_name, sheet_name, time, y, r2)
+        sp.save_results_to_excel(predictions_list, data_file_name, sheet_name, sheet_name, time, y, r2, prediciton_loss, mae, huber_loss_value)
 
 """
 Bulk predictions on new data
@@ -195,7 +206,7 @@ def bulk_predictions_on_new_data(model_file_name, data_file_name="data/wynikowy_
 Load trained model
 Temporary function to load graphs to tensor board
 """
-def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_name="data/data.xlsx"):
+def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_name="data/data.xlsx", X=X_test, y=y_test):
     import tkinter as tk
     from tkinter import filedialog
     import re
@@ -229,7 +240,28 @@ def load_trained_model(data_file_name="data/chart_data.xlsx", compare_data_file_
     time = np.array(test_data.to('cpu'))[:,-1]
 
     #test_data = dp.input_normalization_mean(test_data)
-    raw_predictions = prediction_model(test_data)
+    from torch.autograd import Variable
+    input_data = Variable(X, requires_grad=True)
+    raw_predictions = prediction_model(input_data)
+
+    prediction_model.zero_grad()
+    if raw_predictions.size() == torch.Size([1]):
+        raw_predictions.backward() 
+    else:
+        grad_outputs = torch.ones(raw_predictions.size())
+        raw_predictions.backward(grad_outputs)
+    gradients = input_data.grad.data
+    feature_importances = gradients.abs().mean(dim=0)
+    feature_importances = feature_importances.numpy()
+    features_names = ['Temperature [C]', 'Mo [at%]', 'Nb [at%]', 'Ta [at%]', 'Ti [at%]', 'Cr [at%]', 'Al [at%]', 'W [at%]', 'Zr [at%]', 'Time [h]']
+
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+    plt.bar(features_names, feature_importances, color='skyblue')
+    plt.xlabel('Cechy')
+    plt.ylabel('Ważność (średni gradient)')
+    plt.title('Ważność cech oparta na gradientach')
+    plt.show()
 
     predictions = raw_predictions.to('cpu').detach().numpy()
     predictions_filtered = [prediction[0] for prediction in predictions]

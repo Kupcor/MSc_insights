@@ -58,6 +58,11 @@ def get_standarized_data(file_name, output_scaling = False):
 
     joblib.dump(x_scaler, 'data/scaler_x.pkl')
 
+    output_excel = "data/current_standarized_data.xlsx"
+    data_dict = {'X': X_scaled.tolist(), 'y': y.tolist()}
+    df = pd.DataFrame(data_dict)
+    df.to_excel(output_excel, index=False)
+
     return X_scaled, y, x_scaler, None
 
 """
